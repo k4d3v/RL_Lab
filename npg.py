@@ -1,5 +1,7 @@
 """ An implementation of the natural policy gradient algorithm as introduced in https://arxiv.org/abs/1703.02660"""
 
+import numpy as np
+
 
 def npg_pc(K, N, T):
     """ Implementation of policy search with NPG
@@ -15,9 +17,10 @@ def npg_pc(K, N, T):
 
         # Compute log gradient for ech state-action pair
         states, actions = [], []
+        Nabla_Theta = np.zeros((len(states), len(actions)))
         for s in states:
             for a in actions:
-                Nabla_Theta = 0
+                Nabla_Theta[s][a] = 0
 
         # Compute advantages and approx. value function
         A = 0
