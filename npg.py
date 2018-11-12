@@ -3,11 +3,13 @@
 import numpy as np
 
 
-def npg_pc(K, N, T):
+def npg_pc(K, N, T, gamma):
     """ Implementation of policy search with NPG
     K -- Number of iterations
     N -- umber of trajs
-    T -- Number of time steps (?)"""
+    T -- Number of time steps (?)
+    gamma -- Discount factor"""
+
     # Init. policy params
     Theta = 0
 
@@ -39,7 +41,7 @@ def npg_pc(K, N, T):
         Theta = grad_asc(Theta, pg, F, delta)
 
         # Update params of value function in order to approx. V(s_t^n)
-        R = empi_re(states, N, T)
+        R = empi_re(states, N, T, gamma)
         v_params = update_v_params(R)
 
         # Return params of optimal policy
@@ -77,11 +79,12 @@ def grad_asc(Theta, pg, F, delta):
     return 0
 
 
-def empi_re(states, N, T):
+def empi_re(states, N, T, gamma):
     """ Computes the empirical return for each state in each time step and every trajectory
     states -- The states in the current rollout
     N -- Number of trajs
-    T -- Number of time steps (?)"""
+    T -- Number of time steps (?)
+    gamma -- Discount factor"""
     return 0
 
 

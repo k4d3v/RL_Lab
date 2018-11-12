@@ -2,4 +2,4 @@
 
 import npg
 
-print(npg.npg_pc(100, 100, 100))
+print(npg.npg_pc(100, 100, 100, 0))
