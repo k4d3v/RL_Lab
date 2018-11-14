@@ -4,7 +4,6 @@ import numpy as np
 import torch
 import linear_policy
 import gym
-from val_func_est import conj_grad
 
 
 class NPG:
