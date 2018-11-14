@@ -43,7 +43,7 @@ class NPG:
 
             # Perform gradient ascent (5)
             # TODO: Normalize step size
-            Theta = self.grad_asc(Theta, pg, F, delta)
+            Theta = self.grad_asc(Theta, pg, F)
 
             # Update params of value function in order to approx. V(s_t^n)
             R = self.empi_re(states, N, T, gamma)
