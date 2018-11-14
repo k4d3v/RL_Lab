@@ -151,7 +151,9 @@ class NPG:
     def update_v_params(self, R):
         """ Updates the params of the value function in order to approximate it according to the empirical reward
         R -- Empirical reward"""
-        return 0
+        V = R
+
+        return V
 
 
 env = gym.make('Pendulum-v0')
