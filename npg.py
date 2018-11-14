@@ -43,7 +43,6 @@ class NPG:
 
             # Perform gradient ascent (5)
             # TODO: Normalize step size
-            delta = 0
             Theta = self.grad_asc(Theta, pg, F, delta)
 
             # Update params of value function in order to approx. V(s_t^n)
@@ -88,9 +87,9 @@ class NPG:
         :return: Estimated gradient
         """
         Nabla_Theta = []
-        for traj, t in zip(trajs, range(len(trajs))):
+        for traj in trajs:
             nabla_theta_traj = []
-            for point, p in zip(traj, range(len(traj))):
+            for point in traj:
                 grad = self.policy.get_gradient(point[0], point[1])
                 nabla_theta_traj.append(grad)
             Nabla_Theta.append(nabla_theta_traj)
@@ -107,7 +106,7 @@ class NPG:
         :return: Estimated advantage function
         """
         A = []
-        for traj in range(len(R)):
+        for n in range(len(R)):
             curr_A = []
             for t in range(T):
                 A_t = 0
@@ -123,32 +122,37 @@ class NPG:
         Nabla_Theta -- Contains the log gradient for each state-action pair along trajs
         A -- Advantages based on trajs in current iteration
         T -- Trajectory length"""
-        exp_sum = 0
-        for t in range(0, T):
-            exp_sum = exp_sum + Nabla_Theta[t]*A[t]
-        pg = exp_sum/T
+        pg = []
+        for n in range(len(A)):
+            exp_sum = 0
+            for t in range(T):
+                exp_sum += Nabla_Theta[n][t]*A[n][t]
+            pg.append(exp_sum/T)
 
         return pg
 
 
     def fish(self, Nabla_Theta, T):
         """ Computes the Fisher matrix.
-        Nabla_Theta -- Log gragdient for each (s,a) pair
+        Nabla_Theta -- Log gradient for each (s,a) pair
         T -- Trajectory length"""
-        F_sum = 0
-        for t in range(0, T):
-            F_sum = F_sum + Nabla_Theta[t] * Nabla_Theta[t].T
-        F  = F_sum/T
+        F = []
+        for n in range(len(Nabla_Theta)):
+            F_sum = 0
+            for t in range(T):
+                F_sum +=  Nabla_Theta[n][t] * Nabla_Theta[n][t].T
+            F.append(F_sum/T)
 
         return F
 
-    def grad_asc(self, Theta, pg, F, delta):
+    def grad_asc(self, Theta, pg, F, delta=0.05):
         """Performs gradient ascent on the parameter function
         Theta -- Params of the current policy
         pg -- Policy gradient
         F -- Fisher information matrix
         delta -- Normalized step size"""
-        Theta = Theta + np.sqrt(delta/pg.T * (1/F) * pg) * (1/F) * pg
+        for n in range(len(F)):
+            Theta[n] += np.sqrt(delta/pg[n].T * (1/F[n]) * pg[n]) * (1/F[n]) * pg[n]
 
         return Theta
 
