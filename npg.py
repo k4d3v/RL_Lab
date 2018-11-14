@@ -31,8 +31,7 @@ class NPG:
 
             """
             # Compute advantages and approx. value function
-            A = 0
-            V_k_old = 0
+            A = gae()
 
             # Compute policy gradient (2)
             # TODO: What is T? Maybe number of time steps?
