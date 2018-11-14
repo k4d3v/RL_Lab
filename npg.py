@@ -26,16 +26,10 @@ class NPG:
             traj = self.rollout(N)
 
             for x in traj:
-                print(policy.get_gradient(x[0], x[1]))
+                grad = policy.get_gradient(x[0], x[1])
+                print(grad)
 
             """
-            # Compute log gradient for ech state-action pair
-            states, actions = [], []
-            Nabla_Theta = np.zeros((len(states), len(actions)))
-            for s in states:
-                for a in actions:
-                    Nabla_Theta[s][a] = 0
-
             # Compute advantages and approx. value function
             A = 0
             V_k_old = 0
@@ -73,7 +67,7 @@ class NPG:
 
             action = self.policy.get_action(torch.from_numpy(observation).view(3, 1).float())  # rollout policy
 
-            point.append(torch.from_numpy(observation))  # Save state to tuple
+            point.append(torch.from_numpy(observation).view(3, 1).float())  # Save state to tuple
             point.append(action)  # Save action to tuple
 
             observation, reward, done, info = env.step(action) # Take action

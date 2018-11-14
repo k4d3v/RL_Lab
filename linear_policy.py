@@ -34,7 +34,23 @@ class LinearPolicy:
             self.std.grad.data.zero_()
 
         prob.backward()
-        return [self.W.grad, self.b.grad, self.std.grad]
+
+        # Flatten gradients
+        # TODO: Look for a better way to flatten
+        grads = []
+        for x in self.W.grad.numpy():
+            for y in x:
+                grads.append(y)
+
+        for x in self.b.grad.numpy():
+            for y in x:
+                grads.append(y)
+
+        for x in self.std.grad.numpy():
+            for y in x:
+                grads.append(y)
+
+        return np.array(grads)
 
     def get_params(self):
         return self.params
