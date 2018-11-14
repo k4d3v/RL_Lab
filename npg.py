@@ -4,6 +4,7 @@ import numpy as np
 import torch
 import linear_policy
 import gym
+from val_func_est import conj_grad
 
 
 class NPG:
@@ -21,6 +22,9 @@ class NPG:
         # Init. policy params
         Theta = 0
 
+        # Collect trajs by rolling out policy with Theta
+        old_traj = self.rollout(N)
+
         for k in range(K):
             # Collect trajs by rolling out policy with Theta
             traj = self.rollout(N)
@@ -29,10 +33,11 @@ class NPG:
                 grad = policy.get_gradient(x[0], x[1])
                 print(grad)
 
+            # Approx.value function
+            V = conj_grad(old_traj)
+            # Compute advantages and
+            A = gae(V)
             """
-            # Compute advantages and approx. value function
-            A = gae()
-
             # Compute policy gradient (2)
             # TODO: What is T? Maybe number of time steps?
             pg = self.pol_grad(Nabla_Theta, A, T)
@@ -75,6 +80,17 @@ class NPG:
             traj.append(point)  # Add Tuple to traj
 
         return traj
+
+    def gae(self, V, gamma=1, lamb=0.1):
+        """
+        Estimates the advantage function using the GAE algorithm (https://arxiv.org/pdf/1506.02438.pdf)
+        :param V: The estimated value function for the previous set of trajectories
+        :param gamma: Hyperparam.
+        :param lamb: Hyperparam.
+        :return: Estimated advantage function
+        """
+        
+        return 0
 
     def pol_grad(self, Nabla_Theta, A, T):
         """ Computes the policy gradient.
