@@ -27,16 +27,21 @@ class NPG:
 
         for k in range(K):
             # Collect trajs by rolling out policy with Theta
-            traj = self.rollout(N)
+            trajs = self.rollout(N)
 
-            for x in traj:
-                grad = self.policy.get_gradient(x[0], x[1])
-                print(grad)
+            # Compute gradient for each (s,a) pair of the sampled trajectories
+            Nabla_Theta = np.zeros((len(trajs), len(trajs[0])))
+            for traj, t in zip(trajs, len(trajs)):
+                for point, p in zip(traj, len(traj)):
+                    grad = self.policy.get_gradient(point[0], point[1])
+                    print(grad)
+                    Nabla_Theta[t][p] = grad
 
             # Approx.value function
             V = conj_grad(old_traj)
             # Compute advantages
-            A = self.gae(V, T, k, traj[:][2])
+            A = self.gae(V, T, k, trajs[:][:][2])
+
             """
             # Compute policy gradient (2)
             # TODO: What is T? Maybe number of time steps?
@@ -61,41 +66,46 @@ class NPG:
     def rollout(self, N):
         """ Returns sampled trajs based on the stochastic policy
         N -- Number of trajectories"""
-        observation = self.env.reset()
-        done = False
-        traj = []
+        trajs = []
+        for n in range(N):
+            # Reset the environment
+            observation = self.env.reset()
+            done = False
+            traj = []
 
-        while not done:
-            # env.render()
-            point = []
+            while not done:
+                # env.render()
+                point = []
 
-            action = self.policy.get_action(torch.from_numpy(observation).view(3, 1).float())  # rollout policy
+                action = self.policy.get_action(torch.from_numpy(observation).view(3, 1).float())  # rollout policy
 
-            point.append(torch.from_numpy(observation).view(3, 1).float())  # Save state to tuple
-            point.append(action)  # Save action to tuple
+                point.append(torch.from_numpy(observation).view(3, 1).float())  # Save state to tuple
+                point.append(action)  # Save action to tuple
 
-            observation, reward, done, info = env.step(action) # Take action
+                observation, reward, done, info = env.step(action) # Take action
 
-            point.append(reward)  # Save reward to tuple
-            traj.append(point)  # Add Tuple to traj
+                point.append(reward)  # Save reward to tuple
+                traj.append(point)  # Add Tuple to traj
+            trajs.append(traj)
 
-        return traj
+        return trajs
 
     def gae(self, V, T, k, R, gamma=1, lamb=0.1):
         """
         Estimates the advantage function using the GAE algorithm (https://arxiv.org/pdf/1506.02438.pdf)
         :param V: The estimated value function for the previous set of trajectories
         :param T: The number of time steps
-        :param k: The current iteration
+        :param k: The current iteration (k=t)
+        :param R: The rewards for the current trajectories
         :param gamma: Hyperparam.
         :param lamb: Hyperparam.
         :return: Estimated advantage function
         """
         A = 0
         for l in range(T):
-            delta = R
-            A += ((gamma*lamb)**l)
-        return 0
+            delta = R[k+l]+gamma*V[k+l+1]-V[k+l]
+            A += ((gamma*lamb)**l)*delta
+        return A
 
     def pol_grad(self, Nabla_Theta, A, T):
         """ Computes the policy gradient.
