@@ -106,18 +106,29 @@ class NPG:
             A += ((gamma*lamb)**l)*delta
         return A
 
-    def pol_grad(self, Nabla_Theta, A, T):
+    def pol_grad(Nabla_Theta, A, T):
         """ Computes the policy gradient.
         Nabla_Theta -- Contains the log gradient for each state-action pair along trajs
         A -- Advantages based on trajs in current iteration
         T -- Number of time steps (?)"""
-        return 0
+        exp_sum = 0
+        for t in range(0, T):
+            exp_sum = exp_sum + Nabla_Theta[t]*A[t]
+        pg = exp_sum/T
+
+        return pg
+
 
     def fish(self, Nabla_Theta, T):
         """ Computes the Fisher matrix.
         Nabla_Theta -- Log gragdient for each (s,a) pair
         T -- Number of time steps (?)"""
-        return 0
+        F_sum = 0
+        for t in range(0, T):
+            F_sum = F_sum + Nabla_Theta[t] * Nabla_Theta[t].T
+        F  = F_sum/T
+
+        return F
 
     def grad_asc(self, Theta, pg, F, delta):
         """Performs gradient ascent on the parameter function
@@ -125,7 +136,9 @@ class NPG:
         pg -- Policy gradient
         F -- Fisher information matrix
         delta -- Normalized step size"""
-        return 0
+        Theta = Theta + np.sqrt(delta/pg.T * (1/F) * pg) * (1/F) * pg
+
+        return Theta
 
     def empi_re(self, states, N, T, gamma):
         """ Computes the empirical return for each state in each time step and every trajectory
