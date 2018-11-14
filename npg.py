@@ -30,13 +30,13 @@ class NPG:
             traj = self.rollout(N)
 
             for x in traj:
-                grad = policy.get_gradient(x[0], x[1])
+                grad = self.policy.get_gradient(x[0], x[1])
                 print(grad)
 
             # Approx.value function
             V = conj_grad(old_traj)
-            # Compute advantages and
-            A = gae(V)
+            # Compute advantages
+            A = self.gae(V, T, k, traj[:][2])
             """
             # Compute policy gradient (2)
             # TODO: What is T? Maybe number of time steps?
@@ -61,7 +61,7 @@ class NPG:
     def rollout(self, N):
         """ Returns sampled trajs based on the stochastic policy
         N -- Number of trajectories"""
-        observation = env.reset()
+        observation = self.env.reset()
         done = False
         traj = []
 
@@ -81,15 +81,20 @@ class NPG:
 
         return traj
 
-    def gae(self, V, gamma=1, lamb=0.1):
+    def gae(self, V, T, k, R, gamma=1, lamb=0.1):
         """
         Estimates the advantage function using the GAE algorithm (https://arxiv.org/pdf/1506.02438.pdf)
         :param V: The estimated value function for the previous set of trajectories
+        :param T: The number of time steps
+        :param k: The current iteration
         :param gamma: Hyperparam.
         :param lamb: Hyperparam.
         :return: Estimated advantage function
         """
-        
+        A = 0
+        for l in range(T):
+            delta = R
+            A += ((gamma*lamb)**l)
         return 0
 
     def pol_grad(self, Nabla_Theta, A, T):
