@@ -3,6 +3,8 @@
 import numpy as np
 
 
+
+
 def npg_pc(K, N, T, gamma):
     """ Implementation of policy search with NPG
     K -- Number of iterations
