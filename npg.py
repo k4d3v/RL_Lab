@@ -11,7 +11,7 @@ class NPG:
         self.policy = policy
         self.env = env
 
-    def train(self, K, N, T, gamma):
+    def train(self, K=1, N=0, T=0, gamma=0):
         """ Implementation of policy search with NPG
         K -- Number of iterations
         N -- umber of trajs
@@ -23,8 +23,12 @@ class NPG:
 
         for k in range(K):
             # Collect trajs by rolling out policy with Theta
-            Taus = self.rollout(Theta, N)
+            traj = self.rollout(N)
 
+            for x in traj:
+                print(policy.get_gradient(x[0], x[1]))
+
+            """
             # Compute log gradient for ech state-action pair
             states, actions = [], []
             Nabla_Theta = np.zeros((len(states), len(actions)))
@@ -54,32 +58,30 @@ class NPG:
 
             # Return params of optimal policy
             return Theta
+            """
 
     def rollout(self, N):
         """ Returns sampled trajs based on the stochastic policy
-        Theta -- Parameters of the current policy
         N -- Number of trajectories"""
         observation = env.reset()
         done = False
         traj = []
 
         while not done:
-            #env.render()
+            # env.render()
             point = []
-            action = env.action_space.sample()
-            #action = self.policy.get_action(torch.from_numpy(observation))
-            #print(torch.from_numpy(observation))
 
-            point.append(observation) # Save state to tuple
-            point.append(action) # Save action to tuple
+            action = self.policy.get_action(torch.from_numpy(observation).view(3, 1).float())  # rollout policy
+
+            point.append(torch.from_numpy(observation))  # Save state to tuple
+            point.append(action)  # Save action to tuple
 
             observation, reward, done, info = env.step(action) # Take action
 
-            point.append(reward) # Save reward to tuple
-            traj.append(point) # Add Tuple to traj
+            point.append(reward)  # Save reward to tuple
+            traj.append(point)  # Add Tuple to traj
 
         return traj
-
 
     def pol_grad(self, Nabla_Theta, A, T):
         """ Computes the policy gradient.
@@ -119,4 +121,4 @@ class NPG:
 env = gym.make('Pendulum-v0')
 policy = linear_policy.LinearPolicy(1, 3)
 model = NPG(policy, env)
-print(model.rollout(1))
+model.train()
