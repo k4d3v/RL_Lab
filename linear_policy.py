@@ -52,8 +52,21 @@ class LinearPolicy:
 
         return np.array(grads)
 
-    def get_params(self):
-        return self.params
+    def update_params(self, step):
+        # TODO: Remove HardCoded Stuff, wont work on other Envs
+
+        new_param = self.W.data.numpy()+step[0:3].ravel()
+        self.W = Variable(torch.from_numpy(new_param).float(), requires_grad=True)
+        print("New param W: ", self.W)
+
+        new_param_2 = self.b.data.numpy()+step[3].ravel()
+        self.b = Variable(torch.from_numpy(new_param_2).float(), requires_grad=True)
+        print("New param b: ", self.b)
+
+        new_param_3 = self.std.data.numpy() + step[4].ravel()
+        self.std = Variable(torch.from_numpy(new_param_3).float(), requires_grad=True)
+        print("New param std: ", self.std)
+
 
 """
 state_dimension = 2
