@@ -163,5 +163,5 @@ class NPG:
     def update_v_params(self, R):
         """ Updates the params of the value function in order to approximate it according to the empirical reward
         R -- Empirical reward"""
-
+        V = R
         return V
