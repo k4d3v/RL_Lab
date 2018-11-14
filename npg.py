@@ -4,6 +4,7 @@ import numpy as np
 import torch
 import linear_policy
 import gym
+import val_func_est
 
 
 class NPG:
@@ -11,39 +12,30 @@ class NPG:
         self.policy = policy
         self.env = env
 
-    def train(self, K=1, N=0, T=0, gamma=0):
+    def train(self, K=1, N=1, T=100, gamma=0):
         """ Implementation of policy search with NPG
         K -- Number of iterations
         N -- umber of trajs
-        T -- Number of time steps (?)
+        T -- Number of time steps (Trajectory length)
         gamma -- Discount factor"""
 
-        # Init. policy params
-        Theta = 0
-
         # Collect trajs by rolling out policy with Theta
-        old_traj = self.rollout(N)
+        old_trajs = self.rollout(N)
 
         for k in range(K):
             # Collect trajs by rolling out policy with Theta
             trajs = self.rollout(N)
 
             # Compute gradient for each (s,a) pair of the sampled trajectories
-            Nabla_Theta = np.zeros((len(trajs), len(trajs[0])))
-            for traj, t in zip(trajs, len(trajs)):
-                for point, p in zip(traj, len(traj)):
-                    grad = self.policy.get_gradient(point[0], point[1])
-                    print(grad)
-                    Nabla_Theta[t][p] = grad
-
-            # Approx.value function
-            V = conj_grad(old_traj)
-            # Compute advantages
-            A = self.gae(V, T, k, trajs[:][:][2])
+            Nabla_Theta = self.nabla_theta(trajs)
 
             """
+            # Approx.value function
+            V = val_func_est.conj_grad(old_trajs)
+            # Compute advantages
+            A = self.gae(V, T, trajs[:][:][2])
+            
             # Compute policy gradient (2)
-            # TODO: What is T? Maybe number of time steps?
             pg = self.pol_grad(Nabla_Theta, A, T)
 
             # Compute Fisher matrix (4)
@@ -81,7 +73,7 @@ class NPG:
                 point.append(torch.from_numpy(observation).view(3, 1).float())  # Save state to tuple
                 point.append(action)  # Save action to tuple
 
-                observation, reward, done, info = env.step(action) # Take action
+                observation, reward, done, info = self.env.step(action) # Take action
 
                 point.append(reward)  # Save reward to tuple
                 traj.append(point)  # Add Tuple to traj
@@ -89,28 +81,48 @@ class NPG:
 
         return trajs
 
-    def gae(self, V, T, k, R, gamma=1, lamb=0.1):
+    def nabla_theta(self, trajs):
+        """
+        Computes the gradient for each state-action pair on the sampled trajectories
+        :param trajs: Sampled trajectories
+        :return: Estimated gradient
+        """
+        Nabla_Theta = []
+        for traj, t in zip(trajs, range(len(trajs))):
+            nabla_theta_traj = []
+            for point, p in zip(traj, range(len(traj))):
+                grad = self.policy.get_gradient(point[0], point[1])
+                nabla_theta_traj.append(grad)
+            Nabla_Theta.append(nabla_theta_traj)
+        return Nabla_Theta
+
+    def gae(self, V, T, R, gamma=1, lamb=0.1):
         """
         Estimates the advantage function using the GAE algorithm (https://arxiv.org/pdf/1506.02438.pdf)
         :param V: The estimated value function for the previous set of trajectories
         :param T: The number of time steps
-        :param k: The current iteration (k=t)
         :param R: The rewards for the current trajectories
         :param gamma: Hyperparam.
         :param lamb: Hyperparam.
         :return: Estimated advantage function
         """
-        A = 0
-        for l in range(T):
-            delta = R[k+l]+gamma*V[k+l+1]-V[k+l]
-            A += ((gamma*lamb)**l)*delta
+        A = []
+        for traj in range(len(R)):
+            curr_A = []
+            for t in range(T):
+                A_t = 0
+                for l in range(T):
+                    delta = R[t+l]+gamma*V[t+l+1]-V[t+l]
+                    A_t += ((gamma*lamb)**l)*delta
+                curr_A.append(A_t)
+            A.append(curr_A)
         return A
 
-    def pol_grad(Nabla_Theta, A, T):
+    def pol_grad(self, Nabla_Theta, A, T):
         """ Computes the policy gradient.
         Nabla_Theta -- Contains the log gradient for each state-action pair along trajs
         A -- Advantages based on trajs in current iteration
-        T -- Number of time steps (?)"""
+        T -- Trajectory length"""
         exp_sum = 0
         for t in range(0, T):
             exp_sum = exp_sum + Nabla_Theta[t]*A[t]
@@ -122,7 +134,7 @@ class NPG:
     def fish(self, Nabla_Theta, T):
         """ Computes the Fisher matrix.
         Nabla_Theta -- Log gragdient for each (s,a) pair
-        T -- Number of time steps (?)"""
+        T -- Trajectory length"""
         F_sum = 0
         for t in range(0, T):
             F_sum = F_sum + Nabla_Theta[t] * Nabla_Theta[t].T
@@ -144,19 +156,12 @@ class NPG:
         """ Computes the empirical return for each state in each time step and every trajectory
         states -- The states in the current rollout
         N -- Number of trajs
-        T -- Number of time steps (?)
+        T -- Trajectory length
         gamma -- Discount factor"""
         return 0
 
     def update_v_params(self, R):
         """ Updates the params of the value function in order to approximate it according to the empirical reward
         R -- Empirical reward"""
-        V = R
 
         return V
-
-
-env = gym.make('Pendulum-v0')
-policy = linear_policy.LinearPolicy(1, 3)
-model = NPG(policy, env)
-model.train()
