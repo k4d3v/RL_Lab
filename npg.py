@@ -9,10 +9,11 @@ import val_func_est
 
 
 class NPG:
-    def __init__(self, policy, env, val):
+    def __init__(self, policy, env, val, log):
         self.policy = policy
         self.env = env
         self.val = val
+        self.log = log
 
     def train(self, K=1, N=1, gamma=0.9, lamb=0.97):
         """ Implementation of policy search with NPG
@@ -81,6 +82,7 @@ class NPG:
             trajs.append(traj)
 
         print("Avg reward: ", (avg_reward/N).numpy())
+        self.log.add((avg_reward/N).numpy()[0])
         return trajs
 
     def nabla_theta(self, trajs):
