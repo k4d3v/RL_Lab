@@ -2,35 +2,44 @@
 
 import numpy as np
 
-def train(N=1):
-    # Init.
 
-    # Sample controller params
-    Theta =  np.random.normal(size=(N, N))
+class PILCO:
+    def __init__(self, N=1):
+        """
 
-    # Apply random control signals and record data
+        :param N: Number of rollouts
+        """
+        self.N = N
 
-    while True:
-        # Learn GP dynamics model using all data (Sec. 3.1)
+    def train(self):
+        # Init.
+
+        # Sample controller params
+        Theta = np.random.normal(size=(self.N, self.N))
+
+        # Apply random control signals and record data
 
         while True:
-            # Approx. inference for policy evaluation (Sec. 3.2)
+            # Learn GP dynamics model using all data (Sec. 3.1)
 
-            # Get J^pi(Theta) (9), (10), (11)
+            while True:
+                # Approx. inference for policy evaluation (Sec. 3.2)
 
-            # Policy improvement based on the gradient (Sec. 3.3)
-            # Get the gradient of J (12)-(16)
+                # Get J^pi(Theta) (9), (10), (11)
 
-            # Update Theta (CG or L-BFGS)
+                # Policy improvement based on the gradient (Sec. 3.3)
+                # Get the gradient of J (12)-(16)
+
+                # Update Theta (CG or L-BFGS)
+
+                # Convergence check
+                break
+
+            # Set new optimal policy
+
+            # Apply policy to system and record
 
             # Convergence check
             break
 
-        # Set new optimal policy
-
-        # Apply policy to system and record
-
-        # Convergence check
-        break
-
-    return 0
+        return 0
