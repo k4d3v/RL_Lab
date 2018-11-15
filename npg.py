@@ -14,7 +14,7 @@ class NPG:
         self.env = env
         self.val = val
 
-    def train(self, K=1, N=1, gamma=0):
+    def train(self, K=1, N=1, gamma=0.9, lamb=0.97):
         """ Implementation of policy search with NPG
         K -- Number of iterations
         N -- umber of trajs
@@ -30,16 +30,17 @@ class NPG:
             log_prob_gradients = self.nabla_theta(trajs)
 
             # Compute Advantages
-            # TODO
+            vals = self.val.predict(trajs)
+            adv = self.gae(trajs, vals, gamma, lamb)
 
             # Compute Vanilla Policy Gradient
-            policy_gradient = self.pol_grad(log_prob_gradients, 0)
+            policy_gradient = self.pol_grad(log_prob_gradients, adv)
 
             # Compute Fisher Information Metric
             F = self.fish(log_prob_gradients)
             F_inv = inv(F)
 
-            # Compute gradient ascent step
+            # Compute gradient ascent step (normalize step size * natural gradient)
             step = self.grad_asc_step(policy_gradient, F_inv)
 
             # Update params
@@ -106,7 +107,7 @@ class NPG:
         for i in range(len(log_prob_gradients)):
             traj_gradient = np.zeros((1, len(log_prob_gradients[i][0])))
             for j in range(len(log_prob_gradients[i])):
-                traj_gradient += log_prob_gradients[i][j] * 1  # Set all Advantages to 1
+                traj_gradient += log_prob_gradients[i][j] * advantages[i][j]
             policy_gradient += traj_gradient / len(log_prob_gradients[i])
         return policy_gradient / len(log_prob_gradients)
 
@@ -133,24 +134,27 @@ class NPG:
         nat_grad = np.matmul(F_inv, policy_gradient.T)
         return alpha*nat_grad
 
-    def gae(self, V, T, R, gamma=1, lamb=0.1):
+    def gae(self, trajs, vals, gamma, lamb):
         """
         Estimates the advantage function using the GAE algorithm (https://arxiv.org/pdf/1506.02438.pdf)
-        :param V: The estimated value function for the previous set of trajectories
-        :param T: The number of time steps
-        :param R: The rewards for the current trajectories
+        :param trajs: The trajectories
+        :param vals: The estimated value function for the previous set of trajectories
         :param gamma: Hyperparam.
         :param lamb: Hyperparam.
         :return: Estimated advantage function
         """
-        A = []
-        for n in range(len(R)):
-            curr_A = []
-            for t in range(T):
-                A_t = 0
-                for l in range(T):
-                    delta = R[t + l] + gamma * V[t + l + 1] - V[t + l]
-                    A_t += ((gamma * lamb) ** l) * delta
-                curr_A.append(A_t)
-            A.append(curr_A)
-        return A
+        all_advantages=[]
+        for i in range(len(trajs)):
+            traj_advantages=[]
+            for j in range(len(trajs[i])):
+                adv = 0.0
+                for l in range(0, len(trajs[i])-j-1):
+                    delta = trajs[i][j+l][2].numpy() + gamma*vals[i][j+l+1] - vals[i][j+l]
+                    adv += ((gamma*lamb)**l)*delta
+
+                traj_advantages.append(adv)
+            all_advantages.append(traj_advantages)
+
+        return all_advantages
+
+

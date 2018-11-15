@@ -12,5 +12,5 @@ val = val_func_est.ValueFunction(0.90)
 
 model = npg.NPG(policy, env, val)
 
-model.train(K=50, N=3)
+model.train(K=200, N=5)
 

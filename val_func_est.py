@@ -25,7 +25,6 @@ class ValueFunction:
         self.criterion = torch.nn.MSELoss()
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-3)
 
-
     def fit(self, trajs):
         """
         Estimates the value function using conjugate gradients
@@ -33,21 +32,20 @@ class ValueFunction:
         :return: The value function estimate for the given trajectories
         """
 
-        tmp = self.empirical_reward(trajs[0])
+        tmp = self.empirical_reward(trajs)
         states = tmp[0]
         returns = tmp[1]
 
         x = torch.squeeze(torch.stack(states))
         y = torch.stack(returns)
 
-        loss=0.0
+        loss = 0.0
         for t in range(1000):
             # Forward pass
             y_pred = self.model(x)
 
             # Compute loss
             loss = self.criterion(y_pred, y)
-            #print(t, loss.item())
 
             # Zero gradients, perform backward pass, update weights
             self.optimizer.zero_grad()
@@ -56,22 +54,34 @@ class ValueFunction:
 
         print("Value function loss: ", loss.item())
 
-    def empirical_reward(self, traj):
+    def empirical_reward(self, trajs):
         """
         :param traj: A sampled trajectory (state, action, reward)
         :return: (state, empirical_return)
         """
         states = []
         rewards = []
-        for i in range(len(traj)):
-            reward=0.0
-            for j in range(i, len(traj)):
-                reward = reward + (self.discount**(j-i)) * traj[j][2]
 
-            states.append(traj[i][0].view(1, 3))
-            rewards.append(reward)
+        for traj in trajs:
+            for i in range(len(traj)):
+                reward=0.0
+                for j in range(i, len(traj)):
+                    reward = reward + (self.discount**(j-i)) * traj[j][2]
+
+                states.append(traj[i][0].view(1, 3))
+                rewards.append(reward)
 
         return [states, rewards]
+
+
+    def predict(self, trajs):
+        all_values=[]
+        for traj in trajs:
+            traj_values=[]
+            for point in traj:
+                traj_values.append(self.model(torch.squeeze(point[0])).detach().numpy())
+            all_values.append(traj_values)
+        return all_values
 
 
 
