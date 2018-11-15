@@ -15,7 +15,7 @@ class NPG:
         self.val = val
         self.log = log
 
-    def train(self, K=1, N=1, gamma=0.9, lamb=0.97):
+    def train(self, K=1, N=1, gamma=0.99, lamb=0.84):
         """ Implementation of policy search with NPG
         K -- Number of iterations
         N -- umber of trajs
@@ -26,6 +26,7 @@ class NPG:
             print("Iteration ", k)
             # Collect trajs by rolling out policy with Theta
             trajs = self.rollout(N)
+            T = len(trajs[0])
 
             # Compute gradient for each (s,a) pair of the sampled trajectories
             log_prob_gradients = self.nabla_theta(trajs)
@@ -35,10 +36,10 @@ class NPG:
             adv = self.gae(trajs, vals, gamma, lamb)
 
             # Compute Vanilla Policy Gradient
-            policy_gradient = self.pol_grad(log_prob_gradients, adv)
+            policy_gradient = self.pol_grad(log_prob_gradients, adv, N, T)
 
             # Compute Fisher Information Metric
-            F = self.fish(log_prob_gradients)
+            F = self.fish(log_prob_gradients, N, T)
             F_inv = inv(F)
 
             # Compute gradient ascent step (normalize step size * natural gradient)
@@ -100,31 +101,39 @@ class NPG:
             Nabla_Theta.append(nabla_theta_traj)
         return Nabla_Theta
 
-    def pol_grad(self, log_prob_gradients, advantages):
+    def pol_grad(self, log_prob_gradients, advantages, N, T):
         """ Computes the policy gradient.
         log_prob_gradients -- Contains the log gradient for each state-action pair along trajs
         advantages -- Advantages based on trajs in current iteration
+        N -- Number of trajs
+        T -- Number of time steps
         """
-        policy_gradient = np.zeros((1, len(log_prob_gradients[0][0])))
-        for i in range(len(log_prob_gradients)):
-            traj_gradient = np.zeros((1, len(log_prob_gradients[i][0])))
-            for j in range(len(log_prob_gradients[i])):
-                traj_gradient += log_prob_gradients[i][j] * advantages[i][j]
-            policy_gradient += traj_gradient / len(log_prob_gradients[i])
-        return policy_gradient / len(log_prob_gradients)
+        dim_grad = len(log_prob_gradients[0][0])
 
-    def fish(self, log_prob_gradients):
+        policy_gradient = np.zeros((1, dim_grad))
+        for i in range(N):
+            traj_gradient = np.zeros((1, dim_grad))
+            for j in range(T):
+                traj_gradient += log_prob_gradients[i][j] * advantages[i][j]
+            policy_gradient += traj_gradient / T
+        return policy_gradient / N
+
+    def fish(self, log_prob_gradients, N, T):
         """ Computes the Fisher matrix.
         log_prob_gradient -- Log gradient for each (s,a) pair
+        N -- Number of trajectories
+        T -- Number of time steps
         """
-        F = np.zeros((len(log_prob_gradients[0][0]), len(log_prob_gradients[0][0])))
-        for i in range(len(log_prob_gradients)):
-            F_traj = np.zeros((len(log_prob_gradients[0][0]), len(log_prob_gradients[0][0])))
-            for j in range(len(log_prob_gradients[i])):
-                F_traj += np.outer(log_prob_gradients[i][j], log_prob_gradients[i][j])
-            F += F_traj / len(log_prob_gradients[i])
+        dim_grad = len(log_prob_gradients[0][0])
 
-        return F / len(log_prob_gradients)
+        F = np.zeros((dim_grad, dim_grad))
+        for i in range(N):
+            F_traj = np.zeros((dim_grad, dim_grad))
+            for j in range(T):
+                F_traj += np.outer(log_prob_gradients[i][j], log_prob_gradients[i][j])
+            F += F_traj / T
+
+        return F / N
 
     def grad_asc_step(self, policy_gradient, F_inv, delta=0.05):
         """Performs gradient ascent on the parameter function
@@ -150,7 +159,7 @@ class NPG:
             traj_advantages=[]
             for j in range(len(trajs[i])):
                 adv = 0.0
-                for l in range(0, len(trajs[i])-j-1):
+                for l in range(len(trajs[i])-j-1):
                     delta = trajs[i][j+l][2].numpy() + gamma*vals[i][j+l+1] - vals[i][j+l]
                     adv += ((gamma*lamb)**l)*delta
 
