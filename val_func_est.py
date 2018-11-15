@@ -19,7 +19,7 @@ class ThreeLayerNet(torch.nn.Module):
 
 
 class ValueFunction:
-    def __init__(self, discount):
+    def __init__(self, discount=0.90):
         self.discount = discount
         self.model = ThreeLayerNet(3, 50, 25, 1)
         self.criterion = torch.nn.MSELoss()

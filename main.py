@@ -9,10 +9,10 @@ import logger
 
 env = gym.make('Pendulum-v0')
 policy = linear_policy.LinearPolicy(1, 3)
-val = val_func_est.ValueFunction(0.90)
+val = val_func_est.ValueFunction()
 log = logger.Logger()
 
 model = npg.NPG(policy, env, val, log)
-model.train(K=200, N=1)
+model.train(K=500, N=5)
 
 log.plot()

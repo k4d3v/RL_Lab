@@ -15,7 +15,7 @@ class NPG:
         self.val = val
         self.log = log
 
-    def train(self, K=1, N=1, gamma=0.99, lamb=0.84):
+    def train(self, K=1, N=1, gamma=0.90, lamb=0.84):
         """ Implementation of policy search with NPG
         K -- Number of iterations
         N -- umber of trajs
