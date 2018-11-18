@@ -5,10 +5,10 @@ import gym
 import linear_policy
 import val_func_est
 import logger
+import quanser_robots
 
-
-env = gym.make('Pendulum-v0')
-policy = linear_policy.LinearPolicy(1, 3)
+env = gym.make('CartpoleStabShort-v0')
+policy = linear_policy.LinearPolicy(1, 5)
 val = val_func_est.ValueFunction()
 log = logger.Logger()
 

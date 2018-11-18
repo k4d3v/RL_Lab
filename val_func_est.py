@@ -1,8 +1,11 @@
+
+# Can be deleted
+
 """An implementation of a Polynomial Value Function with Ridge Regression"""
 import numpy as np
 import torch
 
-# TODO: Remove HardCoded Stuff, wont work on other Envs
+
 class ThreeLayerNet(torch.nn.Module):
     def __init__(self, D_in, H1, H2, D_out):
         super(ThreeLayerNet, self).__init__()
@@ -21,7 +24,7 @@ class ThreeLayerNet(torch.nn.Module):
 class ValueFunction:
     def __init__(self, discount=0.90):
         self.discount = discount
-        self.model = ThreeLayerNet(3, 50, 25, 1)
+        self.model = ThreeLayerNet(5, 50, 25, 1)
         self.criterion = torch.nn.MSELoss()
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-3)
 
@@ -68,7 +71,7 @@ class ValueFunction:
                 for j in range(i, len(traj)):
                     reward = reward + (self.discount**(j-i)) * traj[j][2]
 
-                states.append(traj[i][0].view(1, 3))
+                states.append(traj[i][0].view(1, 5))
                 rewards.append(reward)
 
         return [states, rewards]

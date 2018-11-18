@@ -55,44 +55,20 @@ class LinearPolicy:
     def update_params(self, step):
         # TODO: Remove HardCoded Stuff, wont work on other Envs
 
-        new_param = self.W.data.numpy()+step[0:3].ravel()
+        new_param = self.W.data.numpy()+step[0:5].ravel()
         self.W = Variable(torch.from_numpy(new_param).float(), requires_grad=True)
         print("New param W: ", self.W)
 
-        new_param_2 = self.b.data.numpy()+step[3].ravel()
+        new_param_2 = self.b.data.numpy()+step[5].ravel()
         self.b = Variable(torch.from_numpy(new_param_2).float(), requires_grad=True)
         print("New param b: ", self.b)
 
-        new_param_3 = self.std.data.numpy() + step[4].ravel()
+        new_param_3 = self.std.data.numpy() + step[6].ravel()
         self.std = Variable(torch.from_numpy(new_param_3).float(), requires_grad=True)
         print("New param std: ", self.std)
 
 
-"""
-state_dimension = 2
-action_dimension = 2
 
-policy = LinearPolicy(action_dimension, state_dimension)
-
-out = policy.get_action(torch.randint(-10, 10, (state_dimension, 1)))
-print(out)
-
-grad = policy.get_gradient(torch.randint(-10, 10, (state_dimension, 1)), torch.Tensor([0.0, 0.0]))
-print(grad)
-
-"""
-"""
-out = policy.get_log_prob(torch.randint(-10, 10, (state_dimension, 1)), torch.Tensor([0.0, 0.0]))
-print(out.detach().numpy())
-
-
-out.backward()
-p = policy.get_params()
-print(p[0].grad)
-print(p[1].grad)
-print(p[2].grad)
-p[0].grad.data.zero_()
-p[1].grad.data.zero_()"""
 
 
 

@@ -69,9 +69,10 @@ class NPG:
                 # env.render()
                 point = []
 
-                action = self.policy.get_action(torch.from_numpy(observation).view(3, 1).float())  # rollout policy
+                action = self.policy.get_action(torch.from_numpy(np.array(observation)).view(5, 1).float()).numpy()  # rollout policy
 
-                point.append(torch.from_numpy(observation).view(3, 1).float())  # Save state to tuple
+                point.append(torch.from_numpy(np.array(observation)).view(5, 1).float())  # Save state to tuple
+
                 point.append(action)  # Save action to tuple
 
                 observation, reward, done, info = self.env.step(action) # Take action
@@ -82,8 +83,8 @@ class NPG:
             avg_reward += episode_reward
             trajs.append(traj)
 
-        print("Avg reward: ", (avg_reward/N).numpy())
-        self.log.add((avg_reward/N).numpy()[0])
+        print("Avg reward: ", avg_reward/N)
+        self.log.add(avg_reward/N)
         return trajs
 
     def nabla_theta(self, trajs):

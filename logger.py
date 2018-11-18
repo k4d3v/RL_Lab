@@ -1,4 +1,6 @@
 
+#CAN BE DELETED
+
 import matplotlib.pyplot as plt
 
 class Logger:
