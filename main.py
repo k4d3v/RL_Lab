@@ -1,18 +1,37 @@
-""" Main file for testing the implementation of the NPG algorithm"""
-
-import npg
 import gym
-import linear_policy
-import val_func_est
-import logger
 import quanser_robots
 
-env = gym.make('CartpoleStabShort-v0')
-policy = linear_policy.LinearPolicy(1, 5)
-val = val_func_est.ValueFunction()
-log = logger.Logger()
+import npg
+import linear_policy
+import mlp_value_function
+import evaluate
 
-model = npg.NPG(policy, env, val, log)
-model.train(K=500, N=5)
 
-log.plot()
+avg_rewards = []
+train_models = 10  # Number of Models that should be trained
+
+for _ in range(train_models):
+
+    print("########################################")
+    policy = linear_policy.SimpleLinearPolicy()
+    env = gym.make('CartpoleStabShort-v0')
+    val = mlp_value_function.ValueFunction()
+    model = npg.NPG(policy, env, val)
+
+    # Evaluate Model before learning with 100 rollouts
+    evaluate1 = evaluate.Evaluator(policy, gym.make('CartpoleStabShort-v0'))
+    ev1 = evaluate1.evaluate(100)
+
+    # Train model with 100 Iterations and 10 Trajectories per Iteration
+    model.train(100, 10)
+
+    # Evaluate Model after learning with 100 rollouts
+    evaluate2 = evaluate.Evaluator(policy, gym.make('CartpoleStabShort-v0'))
+    ev2 = evaluate2.evaluate(100)
+
+    avg_rewards.append([ev1, ev2])
+    print([ev1, ev2])
+
+
+print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+print(avg_rewards)

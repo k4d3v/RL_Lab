@@ -1,79 +1,63 @@
 import numpy as np
 import torch
+from torch.autograd import grad
 from torch.autograd import Variable
-from torch.distributions import MultivariateNormal
+from torch.distributions import Normal
 
 
-class LinearPolicy:
-    def __init__(self, action_dim, state_dim):
-        self.action_dim = action_dim
-        self.state_dim = state_dim
-        self.W = Variable(torch.rand(action_dim, state_dim), requires_grad=True)
-        self.b = Variable(torch.rand(action_dim, 1), requires_grad=True)
-        self.std = Variable(torch.eye(action_dim), requires_grad=True)
-        self.params = [self.W, self.b, self.std]
+# TODO: Remove HardCoded Stuff. Only usable with action_dim=1 and observation_dim=5
+class SimpleLinearPolicy:
+    def __init__(self):
+        self.w1 = Variable(torch.rand(1), requires_grad=True)
+        self.w2 = Variable(torch.rand(1), requires_grad=True)
+        self.w3 = Variable(torch.rand(1), requires_grad=True)
+        self.w4 = Variable(torch.rand(1), requires_grad=True)
+        self.w5 = Variable(torch.rand(1), requires_grad=True)
+        self.b = Variable(torch.rand(1), requires_grad=True)
+        self.std = Variable(torch.rand(1), requires_grad=True)
 
-    def get_action(self, state):
-        mean = torch.mm(self.W, state) + self.b
-        mean = mean.view(1, self.action_dim)
-        gauss = MultivariateNormal(mean, self.std)
-        return gauss.sample()
+    def get_dist(self, state):
+        W = torch.stack([self.w1, self.w2, self.w3, self.w4, self.w5]).view(1, 5)
+        mean = torch.mm(W, state) + self.b
+        dist = Normal(mean, self.std)
+        return dist
 
     def get_log_prob(self, state, action):
-        mean = torch.mm(self.W, state) + self.b
-        mean = mean.view(1, self.action_dim)
-        gauss = MultivariateNormal(mean, self.std)
-        return gauss.log_prob(action)
+        dist = self.get_dist(state)
+        return dist.log_prob(action)
 
     def get_gradient(self, state, action):
-        prob = self.get_log_prob(state, action)
+        dist = self.get_dist(state)
+        grads = grad(dist.log_prob(action), [self.w1, self.w2, self.w3, self.w4, self.w5, self.b, self.std])
+        return np.array([x.numpy() for x in grads]).ravel()
 
-        if(type(self.W.grad).__name__ != 'NoneType'):
-            self.W.grad.data.zero_()
-            self.b.grad.data.zero_()
-            self.std.grad.data.zero_()
+    def get_gradient_analy(self, state, action):
+        W = torch.stack([self.w1, self.w2, self.w3, self.w4, self.w5]).view(1, 5)
+        mean = torch.mm(W, state) + self.b
 
-        prob.backward()
+        grad_w1 = (1/(self.std**2)) * (action - mean) * state[0]
+        grad_w2 = (1 / (self.std ** 2)) * (action - mean) * state[1]
+        grad_w3 = (1 / (self.std ** 2)) * (action - mean) * state[2]
+        grad_w4 = (1 / (self.std ** 2)) * (action - mean) * state[3]
+        grad_w5 = (1 / (self.std ** 2)) * (action - mean) * state[4]
+        grad_b = (1/(self.std**2)) * (action - mean)
+        grad_std = (-1/(2*self.std**2)) * (1 - (1/(self.std**2)) * (action - mean)**2) * 2*self.std
 
-        # Flatten gradients
-        # TODO: Look for a better way to flatten
-        grads = []
-        for x in self.W.grad.numpy():
-            for y in x:
-                grads.append(y)
+        return np.array([grad_w1.detach().numpy()[0][0], grad_w2.detach().numpy()[0][0], grad_w3.detach().numpy()[0][0], grad_w4.detach().numpy()[0][0], grad_w5.detach().numpy()[0][0], grad_b.detach().numpy()[0][0], grad_std.detach().numpy()[0][0]])
 
-        for x in self.b.grad.numpy():
-            for y in x:
-                grads.append(y)
-
-        for x in self.std.grad.numpy():
-            for y in x:
-                grads.append(y)
-
-        return np.array(grads)
+    def get_action(self, state):
+        dist = self.get_dist(state)
+        return dist.sample().numpy()
 
     def update_params(self, step):
-        # TODO: Remove HardCoded Stuff, wont work on other Envs
+        self.w1.data += step[0]
+        self.w2.data += step[1]
+        self.w3.data += step[2]
+        self.w4.data += step[3]
+        self.w5.data += step[4]
+        self.b.data += step[5]
+        self.std.data += step[6]
 
-        new_param = self.W.data.numpy()+step[0:5].ravel()
-        self.W = Variable(torch.from_numpy(new_param).float(), requires_grad=True)
-        print("New param W: ", self.W)
-
-        new_param_2 = self.b.data.numpy()+step[5].ravel()
-        self.b = Variable(torch.from_numpy(new_param_2).float(), requires_grad=True)
-        print("New param b: ", self.b)
-
-        new_param_3 = self.std.data.numpy() + step[6].ravel()
-        self.std = Variable(torch.from_numpy(new_param_3).float(), requires_grad=True)
-        print("New param std: ", self.std)
-
-
-
-
-
-
-
-
-
-
+    def get_params(self):
+        return [self.w1, self.w2, self.w3, self.w4, self.w5, self.b, self.std]
 
