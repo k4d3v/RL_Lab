@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+from timeit import default_timer as timer
 
 
 # TODO: Remove HardCoded Stuff. Only usable with action_dim=1 and observation_dim=5
@@ -52,6 +53,8 @@ class ValueFunction:
         Fits the NN onto training data
         :param trajs: Trajs (state, action, reward) used as supervised learning training data
         """
+        start = timer()
+
         epochs = 3
         batch_size = 64
 
@@ -79,6 +82,8 @@ class ValueFunction:
 
         #pred = self.model(x)
         #print("Value-Function-Loss: ", self.criterion(pred, y).item())
+        end = timer()
+        print("Done fitting, ", end - start)
 
     def empirical_reward(self, trajs):
         """

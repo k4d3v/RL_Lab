@@ -1,5 +1,6 @@
 import gym
 import quanser_robots
+from timeit import default_timer as timer
 
 import npg
 import linear_policy
@@ -22,16 +23,32 @@ for _ in range(train_models):
     val = mlp_value_function.ValueFunction()
     model = npg.NPG(policy, env, val)
 
+    start = timer()
+
     # Evaluate Model before learning with 100 rollouts
     evaluate1 = evaluate.Evaluator(policy, gym.make('CartpoleStabShort-v0'))
     ev1 = evaluate1.evaluate(100)
 
+
+    end = timer()
+    print("Done evaluating init. policy, ", end - start)
+
+    start = timer()
+
     # Train model with 100 Iterations and 10 Trajectories per Iteration
     model.train(100, 10)
+
+    end = timer()
+    print("Done training, ", end - start)
+
+    start = timer()
 
     # Evaluate Model after learning with 100 rollouts
     evaluate2 = evaluate.Evaluator(policy, gym.make('CartpoleStabShort-v0'))
     ev2 = evaluate2.evaluate(100)
+
+    end = timer()
+    print("Done evaluating learnt policy, ", end - start)
 
     avg_rewards.append([ev1, ev2])
     print([ev1, ev2])

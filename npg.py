@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+from timeit import default_timer as timer
 
 
 class NPG:
@@ -24,6 +25,7 @@ class NPG:
         :param n: Number of sampled trajectories per iteration
         """
         for i in range(k):
+            start = timer()
             print("Iteration: ", i)
 
             # Collect trajectories by rolling out the policy
@@ -53,6 +55,9 @@ class NPG:
             # Fit value function
             self.val.fit(trajs)
 
+            end = timer()
+            print("Done iteration, ", end - start)
+
     def grad_asc_step(self, vanilla_gradient, fisher_inv, delta=0.01):
         """
         Computes Theta_k for gradient ascent as in (5)
@@ -61,8 +66,13 @@ class NPG:
         :param delta: Normalized step size
         :return: Theta_k as in (5)
         """
+        start = timer()
+
         alpha = np.sqrt(delta / (np.matmul(np.matmul(vanilla_gradient, fisher_inv), vanilla_gradient.T)))
         nat_grad = np.matmul(fisher_inv, vanilla_gradient.T)
+
+        end = timer()
+        print("Done grad asc step, ", end - start)
         return alpha * nat_grad
 
     def fisher(self, log_prob_grads):
@@ -71,6 +81,8 @@ class NPG:
         :param log_prob_grads:
         :return: Fisher matrix
         """
+        start = timer()
+
         num_trajs = len(log_prob_grads)  # Number of trajectories
         num_grad = len(log_prob_grads[0][0])  # Dimension of Gradient
 
@@ -86,6 +98,9 @@ class NPG:
             f += traj_f
 
         f /= num_trajs
+
+        end = timer()
+        print("Done Fisher, ", end - start)
         return f
 
     def vanilla_pol_grad(self, log_prob_grads, adv):
@@ -95,6 +110,8 @@ class NPG:
         :param adv: Estimated advantages based on approximated value fun
         :return: The policy gradient
         """
+        start = timer()
+
         num_trajs = len(log_prob_grads)  # Number of trajectories
         num_grad = len(log_prob_grads[0][0])  # Dimension of Gradient
 
@@ -110,6 +127,9 @@ class NPG:
             pol_grad += traj_pol_grad
 
         pol_grad /= num_trajs
+
+        end = timer()
+        print("Done vanilla, ", end - start)
         return pol_grad
 
     def compute_grads(self, trajs):
@@ -118,6 +138,8 @@ class NPG:
         :param trajs: Sampled trajs
         :return: The gradient of log pi for each (s,a) pair along the trajs
         """
+        start = timer()
+
         all_grads = []
         for traj in trajs:
             traj_grads = []
@@ -127,6 +149,9 @@ class NPG:
                 grad  = self.policy.get_gradient_analy(torch.Tensor(obs).view(5, 1), torch.from_numpy(act.ravel()))
                 traj_grads.append(grad)
             all_grads.append(traj_grads)
+
+        end = timer()
+        print("Done log grads, ", end - start)
         return all_grads
 
     def compute_adv(self, trajs, vals, gamma=0.95, lamb=0.97):
@@ -139,6 +164,8 @@ class NPG:
         :param lamb: Lambda hyperparam
         :return: Estimated advantages
         """
+        start = timer()
+
         all_adv = []
         for i in range(len(trajs)):
             traj_adv = []
@@ -149,6 +176,9 @@ class NPG:
                     adv += ((gamma*lamb)**l)*delta
                 traj_adv.append(adv)
             all_adv.append(traj_adv)
+
+        end = timer()
+        print("Done advantas, ", end - start)
         return all_adv
 
     def rollout(self, n):
@@ -157,6 +187,8 @@ class NPG:
         :param n: Number of trajs
         :return: Sampled trajs
         """
+        start = timer()
+
         trajs = []
         avg_reward = 0.0
 
@@ -186,4 +218,6 @@ class NPG:
             trajs.append(traj)
 
         #print("Avg reward: ", (avg_reward / n))
+        end = timer()
+        print("Done rollout, ", end - start)
         return trajs
