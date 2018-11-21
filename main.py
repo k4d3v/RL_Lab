@@ -6,13 +6,17 @@ import linear_policy
 import mlp_value_function
 import evaluate
 
+"""
+Script for testing the NPG implementation
+"""
 
 avg_rewards = []
-train_models = 10  # Number of Models that should be trained
+train_models = 1  # Number of Models that should be trained
 
 for _ in range(train_models):
 
     print("########################################")
+    # Setup policy, environment and models
     policy = linear_policy.SimpleLinearPolicy()
     env = gym.make('CartpoleStabShort-v0')
     val = mlp_value_function.ValueFunction()

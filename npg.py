@@ -3,15 +3,27 @@ import numpy as np
 
 
 class NPG:
+    """
+    Represents the NPG algorithm
+    """
     def __init__(self, policy, env, val):
+        """
+        Initializes NPG
+        :param policy: A specific stochastic policy
+        :param env: The current environment
+        :param val: An approximative model for the value function
+        """
         self.policy = policy
         self.env = env
         self.val = val
 
     def train(self, k, n):
-
+        """
+        Trains the NPG model
+        :param k: Number of iterations
+        :param n: Number of sampled trajectories per iteration
+        """
         for i in range(k):
-            #print("------------------------")
             print("Iteration: ", i)
 
             # Collect trajectories by rolling out the policy
@@ -24,14 +36,14 @@ class NPG:
             vals = self.val.predict(trajs)
             adv = self.compute_adv(trajs, vals)
 
-            # Compute Vanilla Policy Gradient
+            # Compute Vanilla Policy Gradient (2)
             vanilla_gradient = self.vanilla_pol_grad(log_prob_grads, adv)
 
-            # Compute Fisher Information Metric
+            # Compute Fisher Information Metric (4)
             fish = self.fisher(log_prob_grads)
             fish_inv = np.linalg.inv(fish)
 
-            # Compute gradient ascent step
+            # Compute gradient ascent step (5)
             step = self.grad_asc_step(vanilla_gradient, fish_inv)
 
             # Update policy parameters
@@ -42,11 +54,23 @@ class NPG:
             self.val.fit(trajs)
 
     def grad_asc_step(self, vanilla_gradient, fisher_inv, delta=0.01):
+        """
+        Computes Theta_k for gradient ascent as in (5)
+        :param vanilla_gradient: The policy gradient
+        :param fisher_inv: The inverted Fisher matrix
+        :param delta: Normalized step size
+        :return: Theta_k as in (5)
+        """
         alpha = np.sqrt(delta / (np.matmul(np.matmul(vanilla_gradient, fisher_inv), vanilla_gradient.T)))
         nat_grad = np.matmul(fisher_inv, vanilla_gradient.T)
         return alpha * nat_grad
 
     def fisher(self, log_prob_grads):
+        """
+        Computes the Fisher information metric (4)
+        :param log_prob_grads:
+        :return: Fisher matrix
+        """
         num_trajs = len(log_prob_grads)  # Number of trajectories
         num_grad = len(log_prob_grads[0][0])  # Dimension of Gradient
 
@@ -65,6 +89,12 @@ class NPG:
         return f
 
     def vanilla_pol_grad(self, log_prob_grads, adv):
+        """
+        Computes the policy gradient as in (2)
+        :param log_prob_grads: The log pi for every state-action pair along trajs
+        :param adv: Estimated advantages based on approximated value fun
+        :return: The policy gradient
+        """
         num_trajs = len(log_prob_grads)  # Number of trajectories
         num_grad = len(log_prob_grads[0][0])  # Dimension of Gradient
 
@@ -83,6 +113,11 @@ class NPG:
         return pol_grad
 
     def compute_grads(self, trajs):
+        """
+        Computes the gradient of log pi
+        :param trajs: Sampled trajs
+        :return: The gradient of log pi for each (s,a) pair along the trajs
+        """
         all_grads = []
         for traj in trajs:
             traj_grads = []
@@ -95,6 +130,15 @@ class NPG:
         return all_grads
 
     def compute_adv(self, trajs, vals, gamma=0.95, lamb=0.97):
+        """
+        Compute the advantages based on the sampled trajs
+        See High-Dimensional Continuous Control Using Generalized Advantage Estimation, p.5
+        :param trajs: Sampled trajs
+        :param vals: Approximated value fun
+        :param gamma: Gamma hyperparam
+        :param lamb: Lambda hyperparam
+        :return: Estimated advantages
+        """
         all_adv = []
         for i in range(len(trajs)):
             traj_adv = []
@@ -108,6 +152,11 @@ class NPG:
         return all_adv
 
     def rollout(self, n):
+        """
+        Samples some trajs from performing actions based on the current policy
+        :param n: Number of trajs
+        :return: Sampled trajs
+        """
         trajs = []
         avg_reward = 0.0
 
