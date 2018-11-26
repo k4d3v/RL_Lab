@@ -1,5 +1,5 @@
-""" Main file for testing the PILCO implementation."""
+""" Main file for testing the implementation for the challenge."""
 
-import pilco
+import dynprog
 
-print(pilco.train())
+print(dynprog.train())
