@@ -6,5 +6,6 @@ class ValIter:
         self.val = val
 
     def train(self):
-        #TODO
+        # Get state
+        s = self.env.reset()
         return 0

@@ -11,7 +11,8 @@ env = gym.make("Pendulum-v0")
 policy = RandomExplorationPolicy()
 val = ValueFunction()
 
-agent = ValIter(env, policy, val)
+agent = ValIter(policy, env, val)
+agent.train()
 #TODO
 
 # Solve for Qube
