@@ -4,17 +4,14 @@ import gym
 
 from dynprog import ValIter
 from policy import RandomExplorationPolicy
-from value_func import ValueFunction
+from value_func import FitNN
 
 # Solve for Pendulum
 env = gym.make("Pendulum-v0")
 policy = RandomExplorationPolicy()
-val = ValueFunction()
+reward = FitNN(4, 1)
+dynamics = FitNN(4, 3)
 
-agent = ValIter(policy, env, val)
+agent = ValIter(policy, env, reward, dynamics)
 agent.train()
-#TODO
 
-# Solve for Qube
-env = gym.make("Qube-v0")
-#TODO
