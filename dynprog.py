@@ -42,8 +42,76 @@ class ValIter:
         # Compute cumulative reward over 100 episodes
         # TODO
 
-        return 0
+        # TODO: State space discretization
 
+        # TODO: Learn dynamics (next state according to an action) by training the NN
+
+        """ TODO: Learn reward matrix for the discretized state space 
+        by sampling randomly according to the initial exploration policy"""
+        R = np.zeros((1,1))
+        x,y = R.shape[0], R.shape[1]
+
+        # TODO: Plot accuracy of the model for different numbers of samples
+
+        # TODO: Difference Value and Policy Iteration?
+
+        # Init. episode
+        init_state = self.env.reset()
+
+        actions = [self.policy.getAction(init_state) for i in range(n_samples)]
+
+        policy = np.full((x, y), 0)
+
+        # Init
+        Vk = np.zeros((x, y))
+
+        # Repeat
+        while True:
+            # Compute Q function
+            Vk_new = np.zeros((x, y))
+            for i in range(x):
+                for j in range(y):
+
+                    currQ = []
+                    for a in actions:
+                        currQ.append(R[i][j] + discount * self.calc_reward(Vk, [i, j], a))
+
+                    # Compute V function
+                    Vk_new[i][j] = self.max_action(currQ, R, 0)
+
+                    # Update policy
+                    policy[i][j] = self.find_policy(currQ)
+
+            # Check convergence
+            if (Vk == Vk_new).all():
+                break
+            Vk = Vk_new
+
+        """
+        Compute the cumulative reward over 100 episodes
+        Compare results(plots and total reward) for different discretizations
+        Plot best results of Value function and Policy for Pendulum - v0
+        """
+
+        return Vk, policy
+
+    def max_action(self, V, R, discount, probModel=None):
+        """Computes the V function. That is the maximum of the V parameter (Current possible rewards)
+        """
+        return max(V)
+
+    def find_policy(self, V, probModel=None):
+        """Finds an optimal policy for a state for 15 time steps, given the V function
+        """
+        return np.argmax(V)
+
+    def calc_reward(self, currVt,s,a):
+        """Calculates a Q value for a given state-action pair
+        """
+        i = s[0]+a[0]
+        j = s[1]+a[1]
+        # Return 0 if action is impossible and reward if not
+        return currVt[i][j]
 
     def rollout(self, num):
         """
