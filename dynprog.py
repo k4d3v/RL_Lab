@@ -10,10 +10,10 @@ class ValIter:
         self.reward = reward
         self.dynamics = dynamics
 
-    def train(self):
+    def train(self, n_samples=10000, discount=0.1):
         # Generate Points by rolling out the policy
         print("1. Rollout policy...")
-        points = self.rollout(10000)
+        points = self.rollout(n_samples)
 
         # Prepare the points for the NN
         x, y, y1 = [], [], []
@@ -95,12 +95,12 @@ class ValIter:
 
         return Vk, policy
 
-    def max_action(self, V, R, discount, probModel=None):
+    def max_action(self, V, R, discount):
         """Computes the V function. That is the maximum of the V parameter (Current possible rewards)
         """
         return max(V)
 
-    def find_policy(self, V, probModel=None):
+    def find_policy(self, V):
         """Finds an optimal policy for a state for 15 time steps, given the V function
         """
         return np.argmax(V)
