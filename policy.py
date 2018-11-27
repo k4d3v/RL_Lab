@@ -2,7 +2,6 @@ import torch
 from torch.distributions import Normal
 
 
-# TODO: Remove HardCoded Stuff. Only usable with action_dim=1 and observation_dim=5
 # TODO: Adjust params according to challenge
 class RandomExplorationPolicy:
     """ Represents a random policy with mu and sigma as params"""

@@ -40,7 +40,7 @@ class FitNN:
     """
     def __init__(self, input, output):
         """
-        Initialies the NN
+        Initialize the NN
         :param input: Input dimension
         :param output: Output dimension
         """
@@ -60,7 +60,7 @@ class FitNN:
             for i in range(0, x.size()[0], batch_size):
                 self.optimizer.zero_grad()
 
-                indices = perm[i:i+batch_size]
+                indices = perm[i:i + batch_size]
                 batch_x = x[indices]
                 batch_y = y[indices]
 
@@ -74,7 +74,49 @@ class FitNN:
         print("Total-Loss after Fitting: ", self.validate_model(x, y))
         print("Done fitting! Time elapsed: ", end - start)
 
-
     def validate_model(self, x, y):
         return self.criterion(self.model(x), y).item()
 
+    def rollout(self, num, env):
+        """
+        Rolls out the policy for num timesteps
+        """
+        points = []
+        points_collected = 0
+        while points_collected < num:
+
+            # Reset the environment
+            observation = env.reset()
+            done = False
+
+            while not done and points_collected < num:
+                old_observation = observation
+                action = env.action_space.sample()
+                observation, reward, done, _ = env.step(action)  # Take action
+                points.append([old_observation, observation, action, reward])
+                points_collected += 1
+
+        return points
+
+    def learn(self, dyn, points):
+        """
+        Fit a model for predicting reward or dynamics
+        :param dyn: If True, learn dynamics. Else learn reward
+        :param points: Trajectory samples for learning
+        """
+        # Generate Points by rolling out the policy
+
+        # Prepare the points for the NN
+        x, y = [], []
+        for point in points:
+            old, new, act, rew = point
+            x.append(np.append(old, act))
+            y.append(new if dyn else rew)
+        x = torch.Tensor(x)
+        y = torch.Tensor(y) if dyn else torch.Tensor(y).view(len(y), 1)
+
+        # Fit wanted function
+        print("-----------------------------------------------------")
+        word = "dynamics" if dyn else "reward"
+        print("2. Fit " + word + " Function... This will take around 30 sec")
+        self.fit_batch(x, y, 1000, 256)
