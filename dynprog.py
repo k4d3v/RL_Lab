@@ -1,9 +1,11 @@
-from value_func import FitNN
 import torch
 import numpy as np
 
 
 class ValIter:
+    """
+    Represents the Dynamic Programming algorithm
+    """
     def __init__(self, policy, env, reward, dynamics):
         self.policy = policy
         self.env = env
@@ -26,7 +28,7 @@ class ValIter:
         y = torch.Tensor(y).view(len(y), 1)
         y1 = torch.Tensor(y1)
 
-        # Fit reward dunction
+        # Fit reward function
         print("-----------------------------------------------------")
         print("2. Fit reward Function... This will take around 30 sec")
         self.reward.fit_batch(x, y, 1000, 256)
@@ -42,12 +44,9 @@ class ValIter:
         # Compute cumulative reward over 100 episodes
         # TODO
 
-        # TODO: State space discretization
+        # TODO: State space discretization (?)
 
-        # TODO: Learn dynamics (next state according to an action) by training the NN
-
-        """ TODO: Learn reward matrix for the discretized state space 
-        by sampling randomly according to the initial exploration policy"""
+        # TODO: Reward matrix
         R = np.zeros((1,1))
         x,y = R.shape[0], R.shape[1]
 
