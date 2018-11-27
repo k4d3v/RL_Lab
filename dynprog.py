@@ -58,7 +58,7 @@ class ValIter:
         # Init. episode
         init_state = self.env.reset()
 
-        actions = [self.policy.getAction(init_state) for i in range(n_samples)]
+        actions = [self.policy.get_action(init_state) for i in range(n_samples)]
 
         policy = np.full((x, y), 0)
 
