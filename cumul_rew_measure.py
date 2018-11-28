@@ -9,11 +9,12 @@ from dyn_prog import DynProg
 from policy import RandomExplorationPolicy
 
 
-def compare_rewards(env_name, max_samples):
+def compare_rewards(env_name, discrets):
     """
     Trains via Value and Policy Iteration on different discretizations and plots cumulative rewards
     :param env_name: Name of the current environment
-    :param max_samples: Max number of discrete entries in the state and action space
+    :param discrets: Contains different numbers of discrete entries in the state and action space
+    (Each has to return an integer when sqrted!)
     """
     print(env_name)
     # Open dynamics and reward NNs
@@ -23,17 +24,16 @@ def compare_rewards(env_name, max_samples):
     env = gym.make(env_name)
     policy = RandomExplorationPolicy()
 
-    discrets = range(1000, max_samples, 1000)
     for discret in discrets:
         print("Number of discrete entries: ", discret)
         # Train agent
-        agent = DynProg(policy, env, reward, dynamics)
-        Vk1, pol1, cumul_rew1 = agent.train_val_iter(discret)
-        Vk2, pol2, cumul_rew2 = agent.train_pol_iter(discret)
+        agent = DynProg(policy, env, reward, dynamics, discret)
+        Vk1, pol1, cumul_rew1 = agent.train_val_iter()
+        #Vk2, pol2, cumul_rew2 = agent.train_pol_iter()
 
         # Make it pretty!
         plt.plot(discrets, cumul_rew1, label="Value iteration")
-        plt.plot(discrets, cumul_rew2, label="Policy iteration")
+        #plt.plot(discrets, cumul_rew2, label="Policy iteration")
         plt.title("Comparison of learning for different dicretizations")
         plt.xlabel("Number of discrete entries in the state and action space")
         plt.ylabel("Cumulative reward after training")
@@ -48,7 +48,7 @@ def compare_rewards(env_name, max_samples):
 
 
 # Pendulum
-compare_rewards("Pendulum-v2", 10000)
+compare_rewards("Pendulum-v2", [64])
 
 # Qube
 # compare_rewards("Qube-v0", 25000)

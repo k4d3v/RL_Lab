@@ -6,7 +6,7 @@ class DynProg:
     Represents the Dynamic Programming algorithm with its two cases Value and Policy Iteration
     """
 
-    def __init__(self, policy, env, reward, dynamics, n_samples=100):
+    def __init__(self, policy, env, reward, dynamics, n_samples=4):
         """
         :param policy: A Gaussian exploration policy
         :param env: The learning environment
@@ -17,12 +17,14 @@ class DynProg:
         self.env = env
         self.reward = reward
         self.dynamics = dynamics
+        self.n_samples = n_samples
         # State space discretization
         # Doc: States between (-pi,-8) and (pi,8) and action between -2 and 2
-        self.states = np.mgrid[-np.pi:np.pi:10j, -8.0:8.0:10j].reshape(2, -1).T
+        arg = np.sqrt(n_samples)*1j
+        self.states = np.mgrid[-np.pi:np.pi:arg, -8.0:8.0:arg].reshape(2, -1).T
         self.actions = np.linspace(-2, 2, n_samples)
 
-    def train_val_iter(self, n_samples=100, discount=0.1):
+    def train_val_iter(self, discount=0.1):
         """
         Value Iteration algo
         :param n_samples:
@@ -30,11 +32,13 @@ class DynProg:
         :return: Vk is the converged V function and policy is the optimal policy based on Vk
         """
 
-        oldvalues = np.zeros((100, 1))
-        newvalues = np.zeros((100, 1))
+        oldvalues = np.zeros((self.n_samples,))
+        newvalues = np.zeros((self.n_samples,))
+        cumul_reward = []
 
         for _ in range(10):
-            for i in range(100):
+            print("Value iteration ", _)
+            for i in range(self.n_samples):
                 Q_all = []
                 for action in self.actions:
                     # Predict next state and reward for given action
@@ -49,9 +53,9 @@ class DynProg:
                     Q_all.append(Q)
 
                 Q_all = np.array(Q_all)
-                newvalues[i] = self.actions[Q_all.argmax()]
+                newvalues[i] = self.actions[Q_all.max()]
 
-            print(np.sum(newvalues-oldvalues)**2)
+            cumul_reward.append(np.sum(newvalues))
             oldvalues = newvalues
 
         return 0, 0

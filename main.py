@@ -30,7 +30,7 @@ dynamics.learn(True, points, 1000, 64)
 
 # Save for later use
 pickle.dump(reward, open("nets/rew_Pendulum-v2.fitnn", 'wb'))
-pickle.dump(dynamics, open("nets_Pendulum-v2/dyn.fitnn", 'wb'))
+pickle.dump(dynamics, open("nets/dyn_Pendulum-v2.fitnn", 'wb'))
 
 agent = DynProg(policy, env, reward, dynamics)
 Vk, pol = agent.train_val_iter()
