@@ -1,5 +1,5 @@
 import numpy as np
-
+import torch
 
 class DynProg:
     """
@@ -19,8 +19,7 @@ class DynProg:
         self.dynamics = dynamics
         # State space discretization
         # Doc: States between (-pi,-8) and (pi,8) and action between -2 and 2
-        self.states = np.array([np.array([s_x, s_x_dot]) for s_x, s_x_dot
-                           in zip(np.linspace(-np.pi, np.pi, n_samples), np.linspace(-8, 8, n_samples))])
+        self.states = np.mgrid[-np.pi:np.pi:10j, -8.0:8.0:10j].reshape(2, -1).T
         self.actions = np.linspace(-2, 2, n_samples)
 
     def train_val_iter(self, n_samples=100, discount=0.1):
@@ -31,48 +30,31 @@ class DynProg:
         :return: Vk is the converged V function and policy is the optimal policy based on Vk
         """
 
-        # Compute cumulative reward over 100 episodes
-        # TODO
+        oldvalues = np.zeros((100, 1))
+        newvalues = np.zeros((100, 1))
 
+        for _ in range(10):
+            for i in range(100):
+                Q_all = []
+                for action in self.actions:
+                    # Predict next state and reward for given action
+                    nxt_state = self.dynamics.predict(torch.Tensor([self.states[i][0], self.states[i][1], action]))
+                    reward = self.reward.predict(torch.Tensor([self.states[i][0], self.states[i][1], action]))
 
+                    # Find nearest discrete state for predicted next state
+                    idx = self.find_nearest(self.states, nxt_state)
 
+                    # Compute Q
+                    Q = reward + discount * oldvalues[idx]
+                    Q_all.append(Q)
 
-        # TODO: Reward matrix
-        R = np.zeros((1, 1))
-        x, y = R.shape[0], R.shape[1]
+                Q_all = np.array(Q_all)
+                newvalues[i] = self.actions[Q_all.argmax()]
 
-        # TODO: Value Iteration (33)
+            print(np.sum(newvalues-oldvalues)**2)
+            oldvalues = newvalues
 
-        policy = np.full((x, y), 0)
-
-        # Init
-        Vk = np.zeros((x, y))
-
-        # Repeat
-        while True:
-            Vk_new = np.zeros((x, y))
-            for i in range(x):
-                for j in range(y):
-
-                    # Compute Q function
-                    currQ = []
-                    for a in self.actions:
-                        currQ.append(R[i][j] + discount * self.calc_reward(Vk, [i, j], a))
-
-                    # Compute V function
-                    Vk_new[i][j] = self.max_action(currQ, R, 0)
-
-                    # Update policy
-                    policy[i][j] = self.find_policy(currQ)
-
-            # Check convergence
-            if (Vk == Vk_new).all():
-                break
-            Vk = Vk_new
-
-        # TODO: Compute the cumulative reward over 100 episodes
-
-        return Vk, policy
+        return 0, 0
 
     def train_pol_iter(self, n_samples=10000, discount=0.1):
         """
@@ -142,7 +124,11 @@ class DynProg:
     def calc_reward(self, currVt, s, a):
         """Calculates a Q value for a given state-action pair
         """
-        i = s[0] + a[0]
-        j = s[1] + a[1]
+        #i = s[0] + a[0]
+        #j = s[1] + a[1]
         # Return reward
-        return currVt[i][j]
+        #return currVt[i][j]
+        return 0
+
+    def find_nearest(self, array, value):
+        return ((array - value) ** 2).sum(1).argmin()

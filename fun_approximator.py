@@ -44,9 +44,9 @@ class FitNN:
         :param input: Input dimension
         :param output: Output dimension
         """
-        self.model = ThreeLayerNet(input, 100, 100, output)
+        self.model = ThreeLayerNet(input, 300, 150, output)
         self.criterion = torch.nn.MSELoss(reduction='sum')
-        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=1e-4)
+        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=5e-6)
 
     def fit_batch(self, x, y, epochs, batch_size):
         """
@@ -55,7 +55,7 @@ class FitNN:
         start = timer()
         print("Total-Loss before Fitting: ", self.validate_model(x, y))
 
-        for _ in range(epochs):
+        for ep in range(epochs):
             perm = torch.randperm(x.size()[0])
             for i in range(0, x.size()[0], batch_size):
                 self.optimizer.zero_grad()
@@ -70,9 +70,10 @@ class FitNN:
                 loss.backward()
                 self.optimizer.step()
 
+            print("Total-Loss after " + str(ep) + " Iterations: ", self.validate_model(x, y))
+
         end = timer()
-        self.total_loss = self.validate_model(x, y)
-        print("Total-Loss after Fitting: ", self.total_loss)
+        print("Total-Loss after Fitting: ", self.validate_model(x, y))
         print("Done fitting! Time elapsed: ", end - start)
 
     def validate_model(self, x, y):
@@ -99,7 +100,7 @@ class FitNN:
 
         return points
 
-    def learn(self, dyn, points):
+    def learn(self, dyn, points, epoches, batch_size):
         """
         Fit a model for predicting reward or dynamics
         :param dyn: If True, learn dynamics. Else learn reward
@@ -119,5 +120,8 @@ class FitNN:
         # Fit wanted function
         print("-----------------------------------------------------")
         word = "dynamics" if dyn else "reward"
-        print("Fit " + word + " Function... This will take around x sec")
-        self.fit_batch(x, y, 1000, 256)
+        print("2. Fit " + word + " Function... This will take around 30 sec")
+        self.fit_batch(x, y, epoches, batch_size)
+
+    def predict(self, point):
+        return self.model(point).data.numpy()
