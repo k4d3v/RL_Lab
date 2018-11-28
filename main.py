@@ -3,6 +3,8 @@
 import gym
 import quanser_robots
 import pickle
+import torch
+import numpy as np
 
 from dyn_prog import DynProg
 from policy import RandomExplorationPolicy
@@ -20,11 +22,11 @@ dynamics = FitNN(s_dim+1, s_dim)
 
 # Sample training data
 print("Rollout policy...")
-points = reward.rollout(2000, env) # See plots in figures dir for optimal number of samples
+points = reward.rollout(10000, env) # See plots in figures dir for optimal number of samples
 
 # Learn dynamics and rewards
-reward.learn(False, points, 1000, 256)
-dynamics.learn(True, points, 1000, 256)
+reward.learn(False, points, 1000, 64)
+dynamics.learn(True, points, 1000, 64)
 
 # Save for later use
 pickle.dump(reward, open("nets/rew_Pendulum-v2.fitnn", 'wb'))
@@ -33,6 +35,7 @@ pickle.dump(dynamics, open("nets_Pendulum-v2/dyn.fitnn", 'wb'))
 agent = DynProg(policy, env, reward, dynamics)
 Vk, pol = agent.train_val_iter()
 Vk, pol = agent.train_pol_iter()
+
 # TODO: Compare results(plots and total reward) for different discretizations
 # TODO: Plot best results of Value function and Policy for Pendulum - v2
 

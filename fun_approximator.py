@@ -44,9 +44,9 @@ class FitNN:
         :param input: Input dimension
         :param output: Output dimension
         """
-        self.model = ThreeLayerNet(input, 300, 150, output)
-        self.criterion = torch.nn.MSELoss(reduction='sum')
-        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=5e-6)
+        self.model = ThreeLayerNet(input, 200, 100, output)
+        self.criterion = torch.nn.MSELoss(reduction='elementwise_mean')
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-4)
 
     def fit_batch(self, x, y, epochs, batch_size):
         """
@@ -58,8 +58,6 @@ class FitNN:
         for ep in range(epochs):
             perm = torch.randperm(x.size()[0])
             for i in range(0, x.size()[0], batch_size):
-                self.optimizer.zero_grad()
-
                 indices = perm[i:i + batch_size]
                 batch_x = x[indices]
                 batch_y = y[indices]
@@ -67,10 +65,11 @@ class FitNN:
                 batch_pred = self.model(batch_x)
                 loss = self.criterion(batch_pred, batch_y)
 
+                self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
 
-            print("Total-Loss after " + str(ep) + " Iterations: ", self.validate_model(x, y))
+            # print("Total-Loss after " + str(ep) + " Iterations: ", self.validate_model(x, y))
 
         end = timer()
         print("Total-Loss after Fitting: ", self.validate_model(x, y))
@@ -125,3 +124,21 @@ class FitNN:
 
     def predict(self, point):
         return self.model(point).data.numpy()
+
+    def validate_on_new_points(self, num, env, dyn):
+        """
+        Validate a Model on new Points.
+        :param dyn: If True, validate dynamics. Else validate reward
+        :param num: Number of Points used
+        :return Average Loss per Point
+        """
+        val_points = self.rollout(num, env)
+        total_loss = 0.0
+        for point in val_points:
+            old, new, act, rew = point
+            if dyn:
+                total_loss += np.sum(self.predict(torch.Tensor(np.append(old, act)))-new)
+            else:
+                total_loss += self.predict(torch.Tensor(np.append(old, act)))-rew
+
+        return total_loss/num

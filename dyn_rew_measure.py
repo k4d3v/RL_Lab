@@ -22,6 +22,7 @@ def compare_models(env_name, max_samples):
 
     ns = range(1000, max_samples, 1000)
     for n in ns:
+        print("---------------------------------------")
         print("Number of samples: ", n)
 
         # Init. NNs
@@ -32,11 +33,14 @@ def compare_models(env_name, max_samples):
         points = reward.rollout(n, env)
 
         # Learn and append loss
-        reward.learn(False, points)
-        loss_rew.append(reward.total_loss)
+        reward.learn(False, points, 1000, 64)
+        loss_rew.append(reward.validate_on_new_points(10000, env, False))
 
-        dynamics.learn(True, points)
-        loss_dyn.append(dynamics.total_loss)
+        dynamics.learn(True, points, 1000, 64)
+        loss_dyn.append(dynamics.validate_on_new_points(10000, env, True))
+
+        print(loss_rew)
+        print(loss_dyn)
 
     # Make it pretty!
     plt.plot(ns, loss_rew, label="Reward learning")
