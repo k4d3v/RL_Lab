@@ -64,48 +64,52 @@ class DynProg:
         :return: Vk is the converged V function from the last iteration and policy is the converged policy
         """
 
-        # Compute cumulative reward over 100 episodes
-        # TODO
-
-        # TODO: State space discretization (?)
-
         # TODO: Reward matrix
         R = np.zeros((1, 1))
         x, y = R.shape[0], R.shape[1]
 
         # TODO: Policy Iteration (30)
 
-        policy = np.full((x, y), 0)
-
         # Init
         Vk = np.zeros((x, y))
+        policy = np.random.uniform(0, 1)
 
         # Repeat for policy convergence
         while True:
             # Repeat for V convergence
             while True:
                 Vk_new = np.zeros((x, y))
+                currQ = []
+                a_curr = []
+                a_pre = []
+                a_pre = a_curr
+                policy_curr = policy
                 for i in range(x):
                     for j in range(y):
-
                         # TODO: Compute Q function
-                        currQ = []
+                        # currQ = []
                         for a in self.actions:
                             currQ.append(R[i][j] + discount * self.calc_reward(Vk, [i, j], a))
+                            a_curr.append(a)
 
                         # Compute V function
-                        Vk_new[i][j] = self.max_action(currQ, R, 0)
-
-                        # Update policy
-                        policy[i][j] = self.find_policy(currQ)
+                        Vk_new = + (policy * currQ)
 
                 # Check convergence
                 if (Vk == Vk_new).all():
                     break
                 Vk = Vk_new
 
+                maxQindex = np.argmax(currQ)
+
+                if a_pre == a_curr[maxQindex]:
+                    policy = 1
+                else:
+                    policy = 0
+
             # TODO: Policy convergence check
-            break
+            if (policy_curr == policy):
+                break
 
         # TODO: Compute the cumulative reward over 100 episodes
 
