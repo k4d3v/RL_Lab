@@ -17,16 +17,16 @@ policy = RandomExplorationPolicy()
 
 # Dimension of states
 s_dim = env.reset().shape[0]
-reward = FitNN(s_dim+1, 1)
-dynamics = FitNN(s_dim+1, s_dim)
+reward = FitNN(s_dim+1, 1, env, False)
+dynamics = FitNN(s_dim+1, s_dim, env, True)
 
 # Sample training data
 print("Rollout policy...")
-points = reward.rollout(10000, env) # See plots in figures dir for optimal number of samples
+points = reward.rollout(7000) # See plots in figures dir for optimal number of samples
 
 # Learn dynamics and rewards
-reward.learn(False, points, 1000, 64)
-dynamics.learn(True, points, 1000, 64)
+reward.learn(points[:2000], 256, 64)
+dynamics.learn(points, 256, 64)
 
 # Save for later use
 pickle.dump(reward, open("nets/rew_Pendulum-v2.fitnn", 'wb'))

@@ -31,15 +31,16 @@ class DynProg:
         :param discount:
         :return: Vk is the converged V function and policy is the optimal policy based on Vk
         """
-
+        # Init.
         oldvalues = np.zeros((self.n_samples,))
         newvalues = np.zeros((self.n_samples,))
         cumul_reward = []
 
-        for _ in range(10):
-            print("Value iteration ", _)
+        while True:
+            # Iterate over states
             for i in range(self.n_samples):
                 Q_all = []
+                # Iterate over actions
                 for action in self.actions:
                     # Predict next state and reward for given action
                     nxt_state = self.dynamics.predict(torch.Tensor([self.states[i][0], self.states[i][1], action]))
@@ -48,17 +49,22 @@ class DynProg:
                     # Find nearest discrete state for predicted next state
                     idx = self.find_nearest(self.states, nxt_state)
 
-                    # Compute Q
-                    Q = reward + discount * oldvalues[idx]
-                    Q_all.append(Q)
+                    # Compute Q and append
+                    Q_all.append(reward + discount * oldvalues[idx])
 
                 Q_all = np.array(Q_all)
-                newvalues[i] = self.actions[Q_all.max()]
+                newvalues[i] = np.max(Q_all)
 
             cumul_reward.append(np.sum(newvalues))
+
+            # Convergence check
+            if (oldvalues == newvalues).all():
+                break
+
             oldvalues = newvalues
 
-        return 0, 0
+        cumul_reward = np.sum(np.array(cumul_reward))
+        return newvalues, cumul_reward
 
     def train_pol_iter(self, n_samples=10000, discount=0.1):
         """

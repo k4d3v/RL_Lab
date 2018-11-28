@@ -26,21 +26,18 @@ def compare_models(env_name, max_samples):
         print("Number of samples: ", n)
 
         # Init. NNs
-        reward = FitNN(s_dim + 1, 1)
-        dynamics = FitNN(s_dim + 1, s_dim)
+        reward = FitNN(s_dim + 1, 1, env, False)
+        dynamics = FitNN(s_dim + 1, s_dim, env, True)
 
         # Generate training data
-        points = reward.rollout(n, env)
+        points = reward.rollout(n)
 
         # Learn and append loss
-        reward.learn(False, points, 1000, 64)
-        loss_rew.append(reward.validate_on_new_points(10000, env, False))
+        reward.learn(points, 256, 64)
+        loss_rew.append(reward.total_loss)
 
-        dynamics.learn(True, points, 1000, 64)
-        loss_dyn.append(dynamics.validate_on_new_points(10000, env, True))
-
-        print(loss_rew)
-        print(loss_dyn)
+        dynamics.learn(points, 256, 64)
+        loss_dyn.append(dynamics.total_loss)
 
     # Make it pretty!
     plt.plot(ns, loss_rew, label="Reward learning")
