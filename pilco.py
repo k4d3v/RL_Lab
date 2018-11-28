@@ -13,13 +13,16 @@ class PILCO:
         self.N = N
 
     def train(self):
+        # Load settings
+        gauss, policy, H, plant, cost = self.settings()
+
         # Initial J random rollouts
         for j in range(self.J):
             # Sample controller params
             Theta = np.random.normal(size=(self.N, self.N))
 
             # Apply random control signals and record data
-            x, y, L, latent = self.rollout(start, policy, H, plant, cost)
+            x, y, L, latent = self.rollout(gauss, policy, H, plant, cost)
 
         # Controlled learning (N iterations)
         for n in range(self.N):
@@ -35,6 +38,7 @@ class PILCO:
 
             # Learn policy
             self.learnPolicy()
+
             # Update Theta (CG or L-BFGS)
 
             # Convergence check
@@ -44,24 +48,33 @@ class PILCO:
 
             # Apply policy to system and record
             self.applyController()
+
             # Convergence check
 
+    def settings(self):
+        gauss = 0
+        policy = 0
+        H = 0
+        plant = 0
+        cost = 0
+        return [gauss, policy, H, plant, cost]
+
     def rollout(self, start, policy, H, plant, cost):
-        # """
-        # :param start: vector containing initial states (without controls)
-        # :param policy: policy structure
-        # :param H: rollout horizon in steps
-        # :param plant: the dynamical system structure
-        # :param cost: cost structure
-        # :return: x, y, L, latent
+        """
+        :param start: vector containing initial states (without controls)
+        :param policy: policy structure
+        :param H: rollout horizon in steps
+        :param plant: the dynamical system structure
+        :param cost: cost structure
+        :return: x, y, L, latent
         #         x: matrix of observed states
         #         y: matrix of corresponding observed successor states
         #         L: cost incurred at each time step
         #         latent: matrix of latent states
         # """
+        x,y,L,latent=0,0,0,0
+        return x, y, L, latent
 
-        # return x, y, L, latent
-        return 0
     # Train (GP) dynamics model
     def trainDynModel(self):
         # Train GP dynamics model
@@ -69,9 +82,12 @@ class PILCO:
 
     # Learn Policy
     def learnPolicy(self):
-        # 1. Updata the policy
+        # 1. Update the policy
+
 
         # 2. Predict trajectory from p(x0) and compute cost trajectory
+
+
         return 0
 
     # Apply the learned controller to a (simulated) system

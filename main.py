@@ -1,5 +1,6 @@
 """ Main file for testing the PILCO implementation."""
 
-import pilco
+from pilco import PILCO
 
-print(pilco.train())
+agent = PILCO()
+agent.train()
