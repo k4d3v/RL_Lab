@@ -2,6 +2,7 @@
 
 import gym
 import quanser_robots
+import pickle
 
 from dyn_prog import DynProg
 from policy import RandomExplorationPolicy
@@ -17,12 +18,17 @@ s_dim = env.reset().shape[0]
 reward = FitNN(s_dim+1, 1)
 dynamics = FitNN(s_dim+1, s_dim)
 
+# Sample training data
 print("Rollout policy...")
-points = reward.rollout(100, env)
+points = reward.rollout(2000, env) # See plots in figures dir for optimal number of samples
 
+# Learn dynamics and rewards
 reward.learn(False, points)
 dynamics.learn(True, points)
-# TODO: Plot accuracy of the model for different numbers of samples
+
+# Save for later use
+pickle.dump(reward, open("nets/rew_Pendulum-v2.fitnn", 'wb'))
+pickle.dump(dynamics, open("nets_Pendulum-v2/dyn.fitnn", 'wb'))
 
 agent = DynProg(policy, env, reward, dynamics)
 Vk, pol = agent.train_val_iter()
