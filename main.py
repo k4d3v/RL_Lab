@@ -17,8 +17,8 @@ s_dim = env.reset().shape[0]
 reward = FitNN(s_dim+1, 1)
 dynamics = FitNN(s_dim+1, s_dim)
 
-print("1. Rollout policy...")
-points = reward.rollout(10000, env)
+print("Rollout policy...")
+points = reward.rollout(100, env)
 
 reward.learn(False, points)
 dynamics.learn(True, points)

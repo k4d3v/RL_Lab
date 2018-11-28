@@ -71,7 +71,8 @@ class FitNN:
                 self.optimizer.step()
 
         end = timer()
-        print("Total-Loss after Fitting: ", self.validate_model(x, y))
+        self.total_loss = self.validate_model(x, y)
+        print("Total-Loss after Fitting: ", self.total_loss)
         print("Done fitting! Time elapsed: ", end - start)
 
     def validate_model(self, x, y):
@@ -118,5 +119,5 @@ class FitNN:
         # Fit wanted function
         print("-----------------------------------------------------")
         word = "dynamics" if dyn else "reward"
-        print("2. Fit " + word + " Function... This will take around 30 sec")
+        print("Fit " + word + " Function... This will take around x sec")
         self.fit_batch(x, y, 1000, 256)
