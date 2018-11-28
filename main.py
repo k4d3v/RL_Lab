@@ -23,8 +23,8 @@ print("Rollout policy...")
 points = reward.rollout(2000, env) # See plots in figures dir for optimal number of samples
 
 # Learn dynamics and rewards
-reward.learn(False, points)
-dynamics.learn(True, points)
+reward.learn(False, points, 1000, 256)
+dynamics.learn(True, points, 1000, 256)
 
 # Save for later use
 pickle.dump(reward, open("nets/rew_Pendulum-v2.fitnn", 'wb'))
