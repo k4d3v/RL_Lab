@@ -6,7 +6,7 @@ class DynProg:
     Represents the Dynamic Programming algorithm with its two cases Value and Policy Iteration
     """
 
-    def __init__(self, policy, env, reward, dynamics):
+    def __init__(self, policy, env, reward, dynamics, n_samples=100):
         """
         :param policy: A Gaussian exploration policy
         :param env: The learning environment
@@ -17,8 +17,13 @@ class DynProg:
         self.env = env
         self.reward = reward
         self.dynamics = dynamics
+        # State space discretization
+        # Doc: States between (-pi,-8) and (pi,8) and action between -2 and 2
+        self.states = np.array([np.array([s_x, s_x_dot]) for s_x, s_x_dot
+                           in zip(np.linspace(-np.pi, np.pi, n_samples), np.linspace(-8, 8, n_samples))])
+        self.actions = np.linspace(-2, 2, n_samples)
 
-    def train_val_iter(self, n_samples=10000, discount=0.1):
+    def train_val_iter(self, n_samples=100, discount=0.1):
         """
         Value Iteration algo
         :param n_samples:
@@ -29,18 +34,14 @@ class DynProg:
         # Compute cumulative reward over 100 episodes
         # TODO
 
-        # TODO: State space discretization (?)
+
+
 
         # TODO: Reward matrix
         R = np.zeros((1, 1))
         x, y = R.shape[0], R.shape[1]
 
         # TODO: Value Iteration (33)
-
-        # Init. episode
-        init_state = self.env.reset()
-
-        actions = [self.policy.get_action(init_state) for i in range(n_samples)]
 
         policy = np.full((x, y), 0)
 
@@ -55,7 +56,7 @@ class DynProg:
 
                     # Compute Q function
                     currQ = []
-                    for a in actions:
+                    for a in self.actions:
                         currQ.append(R[i][j] + discount * self.calc_reward(Vk, [i, j], a))
 
                     # Compute V function
@@ -92,11 +93,6 @@ class DynProg:
 
         # TODO: Policy Iteration (30)
 
-        # Init. episode
-        init_state = self.env.reset()
-
-        actions = [self.policy.get_action(init_state) for i in range(n_samples)]
-
         policy = np.full((x, y), 0)
 
         # Init
@@ -112,7 +108,7 @@ class DynProg:
 
                         # TODO: Compute Q function
                         currQ = []
-                        for a in actions:
+                        for a in self.actions:
                             currQ.append(R[i][j] + discount * self.calc_reward(Vk, [i, j], a))
 
                         # Compute V function
