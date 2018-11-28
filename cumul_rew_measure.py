@@ -52,3 +52,5 @@ compare_rewards("Pendulum-v2", 10000)
 
 # Qube
 # compare_rewards("Qube-v0", 25000)
+
+#TODO: Plot best results of Value fun and Policy on Pendulum-v2
