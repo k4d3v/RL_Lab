@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 
+
 class DynProg:
     """
     Represents the Dynamic Programming algorithm with its two cases Value and Policy Iteration
@@ -20,7 +21,7 @@ class DynProg:
         self.n_samples = n_samples
         # State space discretization
         # Doc: States between (-pi,-8) and (pi,8) and action between -2 and 2
-        arg = np.sqrt(n_samples)*1j
+        arg = np.sqrt(n_samples) * 1j
         self.states = np.mgrid[-np.pi:np.pi:arg, -8.0:8.0:arg].reshape(2, -1).T
         self.actions = np.linspace(-2, 2, n_samples)
 
@@ -32,19 +33,20 @@ class DynProg:
         :return: Vk is the converged V function and policy is the optimal policy based on Vk
         """
         # Init.
-        oldvalues = np.zeros((self.n_samples,))
-        newvalues = np.zeros((self.n_samples,))
+        newvalues, oldvalues = np.zeros((self.n_samples, )), np.zeros((self.n_samples, ))
         cumul_reward = []
 
+        iter = 0
         while True:
+            print("Iteration ", iter)
             # Iterate over states
-            for i in range(self.n_samples):
+            for state, i in zip(self.states, range(self.states.shape[0])):
                 Q_all = []
                 # Iterate over actions
                 for action in self.actions:
                     # Predict next state and reward for given action
-                    nxt_state = self.dynamics.predict(torch.Tensor([self.states[i][0], self.states[i][1], action]))
-                    reward = self.reward.predict(torch.Tensor([self.states[i][0], self.states[i][1], action]))
+                    nxt_state = self.dynamics.predict(torch.Tensor([state[0], state[1], action]))
+                    reward = self.reward.predict(torch.Tensor([state[0], state[1], action]))
 
                     # Find nearest discrete state for predicted next state
                     idx = self.find_nearest(self.states, nxt_state)
@@ -62,6 +64,7 @@ class DynProg:
                 break
 
             oldvalues = newvalues
+            iter += 1
 
         cumul_reward = np.sum(np.array(cumul_reward))
         return newvalues, cumul_reward
@@ -138,10 +141,10 @@ class DynProg:
     def calc_reward(self, currVt, s, a):
         """Calculates a Q value for a given state-action pair
         """
-        #i = s[0] + a[0]
-        #j = s[1] + a[1]
+        # i = s[0] + a[0]
+        # j = s[1] + a[1]
         # Return reward
-        #return currVt[i][j]
+        # return currVt[i][j]
         return 0
 
     def find_nearest(self, array, value):
