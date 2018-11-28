@@ -10,6 +10,11 @@ from policy import RandomExplorationPolicy
 
 
 def compare_rewards(env_name, max_samples):
+    """
+    Trains via Value and Policy Iteration on different discretizations and plots cumulative rewards
+    :param env_name: Name of the current environment
+    :param max_samples: Max number of discrete entries in the state and action space
+    """
     print(env_name)
     # Open dynamics and reward NNs
     reward = pickle.load(open("nets/rew_" + env_name + ".fitnn", 'rb'))
@@ -21,6 +26,7 @@ def compare_rewards(env_name, max_samples):
     discrets = range(1000, max_samples, 1000)
     for discret in discrets:
         print("Number of discrete entries: ", discret)
+        # Train agent
         agent = DynProg(policy, env, reward, dynamics)
         Vk1, pol1, cumul_rew1 = agent.train_val_iter(discret)
         Vk2, pol2, cumul_rew2 = agent.train_pol_iter(discret)

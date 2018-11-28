@@ -8,6 +8,11 @@ import matplotlib.pyplot as plt
 from fun_approximator import FitNN
 
 def compare_models(env_name, max_samples):
+    """
+    Trains NNs on rewards and dynamics for different numbers of samples and plots results
+    :param env_name: Name of the current environment
+    :param max_samples: Max. number of samples for learning
+    """
     print(env_name)
 
     env = gym.make(env_name)
