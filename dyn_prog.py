@@ -77,56 +77,58 @@ class DynProg:
         :return: Vk is the converged V function from the last iteration and policy is the converged policy
         """
 
-        # TODO: Reward matrix
-        R = np.zeros((1, 1))
-        x, y = R.shape[0], R.shape[1]
-
         # TODO: Policy Iteration (30)
-
         # Init
-        Vk = np.zeros((x, y))
-        policy = np.random.uniform(0, 1)
-
+        Vk, Vk_new = np.zeros((self.n_samples,)), np.zeros((self.n_samples,))
+        policy = np.random.uniform(0, 1, len(self.states.shape[0]))
+        is_stable = False
+        round_num = 0
         # Repeat for policy convergence
-        while True:
+        while not is_stable:
+            is_stable = True
+            round_num += 1
+            print("Round Number:", round_num)
+            round_num += 1
             # Repeat for V convergence
+            iter = 0
             while True:
-                Vk_new = np.zeros((x, y))
-                currQ = []
-                a_curr = []
-                a_pre = []
-                a_pre = a_curr
-                policy_curr = policy
-                for i in range(x):
-                    for j in range(y):
-                        # TODO: Compute Q function
-                        # currQ = []
-                        for a in self.actions:
-                            currQ.append(R[i][j] + discount * self.calc_reward(Vk, [i, j], a))
-                            a_curr.append(a)
+                print("Iteration ", iter)
+                # Iterate over states
+                for state, i in zip(self.states, range(self.states.shape[0])):
+                    Q_all = []
+                    # Iterate over actions
+                    for action in self.actions:
+                        # Predict next state and reward for given action
+                        nxt_state = self.dynamics.predict(torch.Tensor([state[0], state[1], action]))
+                        reward = self.reward.predict(torch.Tensor([state[0], state[1], action]))
 
-                        # Compute V function
-                        Vk_new = + (policy * currQ)
+                        # Find nearest discrete state for predicted next state
+                        idx = self.find_nearest(self.states, nxt_state)
 
-                # Check convergence
+                        # Compute Q and append
+                        Q_all.append(reward + discount * Vk[idx])
+
+                    # Compute V-Function
+                    Q_all = np.array(Q_all)
+                    Vk_new[i] = np.sum(policy * Q_all)
+
+                # Convergence check
                 if (Vk == Vk_new).all():
                     break
+
                 Vk = Vk_new
+                iter += 1
 
-                maxQindex = np.argmax(currQ)
+            for state_num in range(self.states.shape[0]):
+                action_by_policy = np.argmax(policy[state_num])
+                best_action, best_action_value = self.next_best_action(state_num, Vk, discount)
+                policy[state_num] = np.eye(self.n_samples)[best_action]
+                if action_by_policy != best_action:
+                    is_stable = False
 
-                if a_pre == a_curr[maxQindex]:
-                    policy = 1
-                else:
-                    policy = 0
+        policy = [np.argmax(policy[state]) for state in range(self.states.shape[0])]
+        return policy, Vk
 
-            # TODO: Policy convergence check
-            if (policy_curr == policy):
-                break
-
-        # TODO: Compute the cumulative reward over 100 episodes
-
-        return Vk, policy
 
     def max_action(self, V, R, discount):
         """Computes the V function. That is the maximum of the V parameter (Current possible rewards)
@@ -147,5 +149,18 @@ class DynProg:
         # return currVt[i][j]
         return 0
 
+
     def find_nearest(self, array, value):
         return ((array - value) ** 2).sum(1).argmin()
+
+    def next_best_action(self, state, V, discount):
+        action_values = np.zeros(self.n_samples)
+        for action_num in range(self.n_samples):
+            # Predict next state and reward for given action
+            nxt_state = self.dynamics.predict(torch.Tensor([state[0], state[1], action_num]))
+            reward = self.reward.predict(torch.Tensor([state[0], state[1], action_num]))
+
+            # Find nearest discrete state for predicted next state
+            idx = self.find_nearest(self.states, nxt_state)
+            action_values[action_num] += (reward + discount * V[idx])
+        return np.argmax(action_values), np.max(action_values)
