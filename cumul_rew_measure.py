@@ -1,9 +1,10 @@
 """ Trains with different state and action space discretizations and compares the results"""
-
+import numpy as np
 import pickle
 import gym
 import quanser_robots
 import matplotlib.pyplot as plt
+import torch
 
 from dyn_prog import DynProg
 from policy import RandomExplorationPolicy
@@ -22,6 +23,7 @@ def compare_rewards(env_name, discrets):
     dynamics = pickle.load(open("nets/dyn_" + env_name + ".fitnn", "rb"))
 
     env = gym.make(env_name)
+    print("Reward range: ",env.reward_range)
     policy = RandomExplorationPolicy()
 
     cumul_rew_list1, cumul_rew_list2 = [], []
@@ -36,7 +38,8 @@ def compare_rewards(env_name, discrets):
         #cumul_rew_list2.append(cumul_rew2)
 
     # Make it pretty!
-    plt.plot(discrets, cumul_rew_list1, label="Value iteration")
+    states = [discret[0] for discret in discrets]
+    plt.plot(states, cumul_rew_list1, label="Value iteration")
     #plt.plot(discrets, cumul_rew2, label="Policy iteration")
     plt.title("Comparison of learning for different dicretizations")
     plt.xlabel("Number of discrete entries in the state and action space")
@@ -52,7 +55,7 @@ def compare_rewards(env_name, discrets):
 
 
 # Pendulum
-compare_rewards("Pendulum-v2", [4, 16, 64])
+compare_rewards("Pendulum-v2", [(2500, 4), (10000, 4)])
 
 # Qube
 # compare_rewards("Qube-v0", 25000)

@@ -7,7 +7,7 @@ class DynProg:
     Represents the Dynamic Programming algorithm with its two cases Value and Policy Iteration
     """
 
-    def __init__(self, policy, env, reward, dynamics, n_samples=4):
+    def __init__(self, policy, env, reward, dynamics, n_sa=(16, 4)):
         """
         :param policy: A Gaussian exploration policy
         :param env: The learning environment
@@ -18,27 +18,28 @@ class DynProg:
         self.env = env
         self.reward = reward
         self.dynamics = dynamics
-        self.n_samples = n_samples
+        self.n_states = n_sa[0]
         # State space discretization
         # Doc: States between (-pi,-8) and (pi,8) and action between -2 and 2
-        arg = np.sqrt(n_samples) * 1j
-        self.states = np.mgrid[-np.pi:np.pi:arg, -8.0:8.0:arg].reshape(2, -1).T
-        self.actions = np.linspace(-2, 2, n_samples)
+        arg = np.sqrt(self.n_states) * 1j
+        self.states = np.mgrid[-np.pi / 2:np.pi / 2:arg, -4.0:4.0:arg].reshape(2, -1).T
+        self.actions = np.linspace(-2, 2, n_sa[1])
 
-    def train_val_iter(self, discount=0.1):
+    def train_val_iter(self, discount=0.5):
         """
         Value Iteration algo
-        :param n_samples:
+        :param n_states:
         :param discount:
         :return: Vk is the converged V function and policy is the optimal policy based on Vk
         """
         # Init.
-        newvalues, oldvalues = np.zeros((self.n_samples, )), np.zeros((self.n_samples, ))
+        oldvalues = np.zeros((self.n_states,))
         cumul_reward = []
 
         iter = 0
         while True:
             print("Iteration ", iter)
+            newvalues = np.zeros((self.n_states,))
             # Iterate over states
             for state, i in zip(self.states, range(self.states.shape[0])):
                 Q_all = []
@@ -49,37 +50,42 @@ class DynProg:
                     reward = self.reward.predict(torch.Tensor([state[0], state[1], action]))
 
                     # Find nearest discrete state for predicted next state
+                    idx_old = self.find_nearest(self.states, state)
                     idx = self.find_nearest(self.states, nxt_state)
+                    """
+                    print("Current:",idx_old)
+                    print("Next:",idx)
+                    print("----")
+                    """
 
                     # Compute Q and append
                     Q_all.append(reward + discount * oldvalues[idx])
 
-                Q_all = np.array(Q_all)
-                newvalues[i] = np.max(Q_all)
+                newvalues[i] = np.max(np.array(Q_all))
 
             cumul_reward.append(np.sum(newvalues))
 
             # Convergence check
-            if (oldvalues == newvalues).all():
+            if (np.abs(oldvalues - newvalues) < 0.1).all():
                 break
 
-            oldvalues = newvalues
+            oldvalues = newvalues[:]
             iter += 1
 
         cumul_reward = np.sum(np.array(cumul_reward))
         return newvalues, cumul_reward
 
-    def train_pol_iter(self, n_samples=10000, discount=0.1):
+    def train_pol_iter(self, n_states=10000, discount=0.1):
         """
         Policy Iteration algo
-        :param n_samples:
+        :param n_states:
         :param discount:
         :return: Vk is the converged V function from the last iteration and policy is the converged policy
         """
 
         # TODO: Policy Iteration (30)
         # Init
-        Vk, Vk_new = np.zeros((self.n_samples,)), np.zeros((self.n_samples,))
+        Vk, Vk_new = np.zeros((self.n_states,)), np.zeros((self.n_states,))
         policy = np.random.uniform(0, 1, len(self.states.shape[0]))
         is_stable = False
         round_num = 0
@@ -122,13 +128,12 @@ class DynProg:
             for state_num in range(self.states.shape[0]):
                 action_by_policy = np.argmax(policy[state_num])
                 best_action, best_action_value = self.next_best_action(state_num, Vk, discount)
-                policy[state_num] = np.eye(self.n_samples)[best_action]
+                policy[state_num] = np.eye(self.n_states)[best_action]
                 if action_by_policy != best_action:
                     is_stable = False
 
         policy = [np.argmax(policy[state]) for state in range(self.states.shape[0])]
         return policy, Vk
-
 
     def max_action(self, V, R, discount):
         """Computes the V function. That is the maximum of the V parameter (Current possible rewards)
@@ -149,13 +154,12 @@ class DynProg:
         # return currVt[i][j]
         return 0
 
-
     def find_nearest(self, array, value):
         return ((array - value) ** 2).sum(1).argmin()
 
     def next_best_action(self, state, V, discount):
-        action_values = np.zeros(self.n_samples)
-        for action_num in range(self.n_samples):
+        action_values = np.zeros(self.n_states)
+        for action_num in range(self.n_states):
             # Predict next state and reward for given action
             nxt_state = self.dynamics.predict(torch.Tensor([state[0], state[1], action_num]))
             reward = self.reward.predict(torch.Tensor([state[0], state[1], action_num]))
