@@ -22,7 +22,8 @@ class DynProg:
         # State space discretization
         # Doc: States between (-pi,-8) and (pi,8) and action between -2 and 2
         arg = np.sqrt(self.n_states) * 1j
-        self.states = np.mgrid[-np.pi / 2:np.pi / 2:arg, -4.0:4.0:arg].reshape(2, -1).T
+        # TODO: Going beyond +-pi is outside of range of learnt reward and dynamics funs!  Maybe choose other vals
+        self.states = np.mgrid[-np.pi:np.pi:arg, -8.0:8.0:arg].reshape(2, -1).T
         self.actions = np.linspace(-2, 2, n_sa[1])
 
     def train_val_iter(self, discount=0.5):
@@ -63,6 +64,7 @@ class DynProg:
 
                 newvalues[i] = np.max(np.array(Q_all))
 
+            print(np.sum(newvalues))
             cumul_reward.append(np.sum(newvalues))
 
             # Convergence check

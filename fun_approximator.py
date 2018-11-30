@@ -77,8 +77,6 @@ class FitNN:
 
         end = timer()
         test_x, test_y = self.prepare_points(self.rollout(x.shape[0]))
-        print(self.validate_model(test_x, test_y))
-        print(self.validate_model(x, y))
         #self.total_loss = self.validate_model(x, y)
         self.total_loss = self.validate_model(test_x, test_y)
         #self.validate_on_new_points(100)

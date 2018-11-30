@@ -20,7 +20,7 @@ def compare_models(env_name, max_samples):
 
     loss_dyn, loss_rew = [], []
 
-    ns = range(1000, max_samples, 1000)
+    ns = range(int(max_samples/10), max_samples, int(max_samples/10))
     for n in ns:
         print("---------------------------------------")
         print("Number of samples: ", n)
@@ -55,7 +55,7 @@ def compare_models(env_name, max_samples):
     plt.show()
 
 # Pendulum
-compare_models("Pendulum-v2", 10000)
+#compare_models("Pendulum-v2", 10000)
 
 # Qube
-#compare_models("Qube-v0", 3000)
+compare_models("Qube-v0", 25000)

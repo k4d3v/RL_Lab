@@ -1,4 +1,6 @@
 """ Trains with different state and action space discretizations and compares the results"""
+import random
+
 import numpy as np
 import pickle
 import gym
@@ -25,6 +27,16 @@ def compare_rewards(env_name, discrets):
     env = gym.make(env_name)
     print("Reward range: ",env.reward_range)
     policy = RandomExplorationPolicy()
+
+    """
+    r = -np.inf
+    act = env.action_space
+    while r<0:
+        s = env.reset()
+        a = random.sample(range(-15, 15), 1)
+        s_n, r, _, _ = env.step(a)
+        print(r)
+    """
 
     cumul_rew_list1, cumul_rew_list2 = [], []
 
@@ -55,9 +67,9 @@ def compare_rewards(env_name, discrets):
 
 
 # Pendulum
-compare_rewards("Pendulum-v2", [(2500, 4), (10000, 4)])
+#compare_rewards("Pendulum-v2", [(100, 16), (400, 16)])
 
 # Qube
-# compare_rewards("Qube-v0", 25000)
+compare_rewards("Qube-v0", [(24964, 16)])
 
 #TODO: Plot best results of Value fun and Policy on Pendulum-v2
