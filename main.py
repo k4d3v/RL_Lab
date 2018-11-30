@@ -24,6 +24,7 @@ dynamics = FitNN(s_dim+1, s_dim, env, True)
 # Sample training data
 print("Rollout policy...")
 points = reward.rollout(15000) # See plots in figures dir for optimal number of samples
+max_rew = np.max([point[3] for point in points])
 
 # Learn dynamics and rewards
 reward.learn(points[:2000], 256, 64)

@@ -12,12 +12,37 @@ from dyn_prog import DynProg
 from policy import RandomExplorationPolicy
 
 
-def compare_rewards(env_name, discrets):
+def plot_results(algo_name, env_name, cumul_rew_list, n_states, n_acts):
+    """
+    Plots cumulative rewards for a given algo for different state and action space discretizations
+    :param algo_name: Name of the algorithm
+    :param env_name: Name of the environment
+    :param cumul_rew_list:
+    :param n_acts: List with different numbers of states
+    :param n_acts: List with different numbers of actions
+    """
+    # Iterate over number of actions and plot curves with values for different state numbers
+    for na in range(len(cumul_rew_list)):
+        plt.plot(n_states, cumul_rew_list[na], label=str(n_acts[na]) + " actions")
+    plt.title("Comparison of " + algo_name + " results for different discretizations on "+env_name)
+    plt.xlabel("Number of discrete entries in the state space")
+    plt.ylabel("Cumulative reward after training")
+    plt.legend()
+
+    # Save plot
+    fig = plt.gcf()
+    fig.savefig('figures/cumul_rew_' + algo_name + '_comparison_' + env_name + '.png')
+
+    # Show plot
+    plt.show()
+
+
+def compare_rewards(env_name, n_states, n_acts):
     """
     Trains via Value and Policy Iteration on different discretizations and plots cumulative rewards
     :param env_name: Name of the current environment
-    :param discrets: Contains different numbers of discrete entries in the state and action space
-    (Each has to return an integer when sqrted!)
+    :param n_states: List with state space discretizations
+    :param n_acts: List with action space discretizations
     """
     print(env_name)
     # Open dynamics and reward NNs
@@ -25,51 +50,39 @@ def compare_rewards(env_name, discrets):
     dynamics = pickle.load(open("nets/dyn_" + env_name + ".fitnn", "rb"))
 
     env = gym.make(env_name)
-    print("Reward range: ",env.reward_range)
+    print("Reward range: ", env.reward_range)
     policy = RandomExplorationPolicy()
-
-    """
-    r = -np.inf
-    act = env.action_space
-    while r<0:
-        s = env.reset()
-        a = random.sample(range(-15, 15), 1)
-        s_n, r, _, _ = env.step(a)
-        print(r)
-    """
 
     cumul_rew_list1, cumul_rew_list2 = [], []
 
-    for discret in discrets:
-        print("Number of discrete entries: ", discret)
-        # Train agent
-        agent = DynProg(policy, env, reward, dynamics, discret)
-        Vk1, cumul_rew1 = agent.train_val_iter()
-        cumul_rew_list1.append(cumul_rew1)
-        #Vk2, pol2, cumul_rew2 = agent.train_pol_iter()
-        #cumul_rew_list2.append(cumul_rew2)
+    for na in n_acts:
+        print("Number of discrete actions: ", na)
+        cumul_rew_states1, cumul_rew_states2 = [], []
+        for ns in n_states:
+            print("Number of discrete states: ", ns)
 
-    # Make it pretty!
-    states = [discret[0] for discret in discrets]
-    plt.plot(states, cumul_rew_list1, label="Value iteration")
-    #plt.plot(discrets, cumul_rew2, label="Policy iteration")
-    plt.title("Comparison of learning for different dicretizations")
-    plt.xlabel("Number of discrete entries in the state and action space")
-    plt.ylabel("Cumulative reward after training")
-    plt.legend()
+            # Train agent
+            agent = DynProg(policy, env, reward, dynamics, (ns, na))
+            _, cumul_rew1 = agent.train_val_iter()
+            cumul_rew_states1.append(cumul_rew1)
 
-    # Save plot
-    fig = plt.gcf()
-    fig.savefig('figures/cumul_rew_comparison_' + env_name + '.png')
+            # Vk2, pol2, cumul_rew2 = agent.train_pol_iter()
 
-    # Show plot
-    plt.show()
+        cumul_rew_list1.append(cumul_rew_states1)
+        # cumul_rew_list2.append(cumul_rew_states2)
+
+    # Value iteration plot
+    plot_results("value_iteration", env_name, cumul_rew_list1, n_states, n_acts)
+
+    # Policy iteration plot
+    #plot_results("policy_iteration", env_name, cumul_rew_list2)
 
 
 # Pendulum
-#compare_rewards("Pendulum-v2", [(100, 16), (400, 16)])
+compare_rewards("Pendulum-v2", [100, 400, 900, 1600, 2500], [4, 8, 16, 32])
+#compare_rewards("Pendulum-v2", [4, 9, 16, 25], [2, 4, 8])
 
 # Qube
-compare_rewards("Qube-v0", [(24964, 16)])
+#compare_rewards("Qube-v0", [100, 400, 900, 1600, 2500], [4, 8, 16, 32])
 
-#TODO: Plot best results of Value fun and Policy on Pendulum-v2
+# TODO: Plot best results of Value fun and Policy on Pendulum-v2

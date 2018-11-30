@@ -32,7 +32,7 @@ class DynProg:
         Value Iteration algo
         :param n_states:
         :param discount:
-        :return: Vk is the converged V function and policy is the optimal policy based on Vk
+        :return: Vk is the converged V function and cumul_reward is the normalized cumulative reward
         """
         # Init.
         oldvalues = np.zeros((self.n_states,))
@@ -43,30 +43,25 @@ class DynProg:
             print("Iteration ", iter)
             newvalues = np.zeros((self.n_states,))
             # Iterate over states
-            for state, i in zip(self.states, range(self.states.shape[0])):
+            for state, i in zip(self.states, range(self.n_states)):
                 Q_all = []
                 # Iterate over actions
                 for action in self.actions:
                     # Predict next state and reward for given action
                     nxt_state = self.dynamics.predict(torch.Tensor([state[0], state[1], action]))
                     reward = self.reward.predict(torch.Tensor([state[0], state[1], action]))
+                    reward = np.abs(reward ** -1)
 
                     # Find nearest discrete state for predicted next state
-                    idx_old = self.find_nearest(self.states, state)
                     idx = self.find_nearest(self.states, nxt_state)
-                    """
-                    print("Current:",idx_old)
-                    print("Next:",idx)
-                    print("----")
-                    """
 
                     # Compute Q and append
                     Q_all.append(reward + discount * oldvalues[idx])
 
                 newvalues[i] = np.max(np.array(Q_all))
 
-            print(np.sum(newvalues))
-            cumul_reward.append(np.sum(newvalues))
+            cumul_reward.append(np.sum(newvalues) / self.n_states)
+            #print(cumul_reward[iter])
 
             # Convergence check
             if (np.abs(oldvalues - newvalues) < 0.1).all():
@@ -75,7 +70,7 @@ class DynProg:
             oldvalues = newvalues[:]
             iter += 1
 
-        cumul_reward = np.sum(np.array(cumul_reward))
+        cumul_reward = np.sum(np.array(cumul_reward)) / iter if iter > 0 else np.sum(np.array(cumul_reward))
         return newvalues, cumul_reward
 
     def train_pol_iter(self, n_states=10000, discount=0.1):
