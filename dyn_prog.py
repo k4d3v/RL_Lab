@@ -19,6 +19,7 @@ class DynProg:
         self.reward = reward
         self.dynamics = dynamics
         self.n_states = n_sa[0]
+        self.n_actions = n_sa[1]
         # State space discretization
         # Doc: States between (-pi,-8) and (pi,8) and action between -2 and 2
         arg = np.sqrt(self.n_states) * 1j
@@ -88,7 +89,7 @@ class DynProg:
         # TODO: Policy Iteration (30)
         # Init
         Vk, Vk_new = np.zeros((self.n_states,)), np.zeros((self.n_states,))
-        policy = np.random.uniform(0, 1, len(self.states.shape[0]))
+        policy = np.tile(np.eye(self.n_actions)[1], (self.n_states, 1))
         is_stable = False
         round_num = 0
         # Repeat for policy convergence
@@ -102,7 +103,7 @@ class DynProg:
             while True:
                 print("Iteration ", iter)
                 # Iterate over states
-                for state, i in zip(self.states, range(self.states.shape[0])):
+                for state, i in zip(self.states, range(self.n_states)):
                     Q_all = []
                     # Iterate over actions
                     for action in self.actions:
@@ -118,7 +119,7 @@ class DynProg:
 
                     # Compute V-Function
                     Q_all = np.array(Q_all)
-                    Vk_new[i] = np.sum(policy * Q_all)
+                    Vk_new[i] = np.sum(policy[i] * Q_all)
 
                 # Convergence check
                 if (Vk == Vk_new).all():
@@ -127,14 +128,15 @@ class DynProg:
                 Vk = Vk_new
                 iter += 1
 
-            for state_num in range(self.states.shape[0]):
+            # for state_num in range(self.n_states):
+            for state, state_num in zip(self.states, range(self.n_states)):
                 action_by_policy = np.argmax(policy[state_num])
-                best_action, best_action_value = self.next_best_action(state_num, Vk, discount)
-                policy[state_num] = np.eye(self.n_states)[best_action]
+                best_action, best_action_value = self.next_best_action(state, Vk, discount)
+                policy[state_num] = np.eye(self.n_actions)[best_action]
                 if action_by_policy != best_action:
                     is_stable = False
 
-        policy = [np.argmax(policy[state]) for state in range(self.states.shape[0])]
+        policy = [np.argmax(policy[state]) for state in range(self.n_states)]
         return policy, Vk
 
     def max_action(self, V, R, discount):
@@ -160,8 +162,8 @@ class DynProg:
         return ((array - value) ** 2).sum(1).argmin()
 
     def next_best_action(self, state, V, discount):
-        action_values = np.zeros(self.n_states)
-        for action_num in range(self.n_states):
+        action_values = np.zeros(self.n_actions)
+        for action_num in range(self.n_actions):
             # Predict next state and reward for given action
             nxt_state = self.dynamics.predict(torch.Tensor([state[0], state[1], action_num]))
             reward = self.reward.predict(torch.Tensor([state[0], state[1], action_num]))
