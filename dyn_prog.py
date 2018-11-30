@@ -87,14 +87,15 @@ class DynProg:
         policy = np.tile(np.eye(self.n_actions)[1], (self.n_states, 1))
         is_stable = False
         round_num = 0
+
         # Repeat for policy convergence
         while not is_stable:
             is_stable = True
-            round_num += 1
             print("Round Number:", round_num)
             round_num += 1
             # Repeat for V convergence
             iter = 0
+            cumul_reward = []
             while True:
                 print("Iteration ", iter)
                 # Iterate over states
@@ -107,6 +108,7 @@ class DynProg:
                         reward = self.reward.predict(torch.Tensor([state[0], state[1], action]))
 
                         # Find nearest discrete state for predicted next state
+                        idx_old = self.find_nearest(self.states, state)
                         idx = self.find_nearest(self.states, nxt_state)
 
                         # Compute Q and append
@@ -116,12 +118,17 @@ class DynProg:
                     Q_all = np.array(Q_all)
                     Vk_new[i] = np.sum(policy[i] * Q_all)
 
+                print(np.sum(Vk_new))
+                cumul_reward.append(np.sum(Vk_new) / self.n_states)
+                print(cumul_reward[iter])
+
                 # Convergence check
-                if (Vk == Vk_new).all():
+                if (np.abs(Vk - Vk_new) < 0.1).all():
                     break
 
-                Vk = Vk_new
+                Vk = Vk_new[:]
                 iter += 1
+                cumul_reward = np.sum(np.array(cumul_reward)) / iter if iter > 0 else np.sum(np.array(cumul_reward))
 
             # for state_num in range(self.n_states):
             for state, state_num in zip(self.states, range(self.n_states)):
@@ -131,7 +138,7 @@ class DynProg:
                 if action_by_policy != best_action:
                     is_stable = False
 
-        policy = [np.argmax(policy[state]) for state in range(self.n_states)]
+        policy = [np.argmax(policy[state_num]) for state_num in range(self.n_states)]
         return policy, Vk
 
     def max_action(self, V, R, discount):
