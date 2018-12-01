@@ -1,6 +1,7 @@
 import numpy as np
 import torch
-
+from scipy import spatial
+import math
 
 class DynProg:
     """
@@ -27,12 +28,13 @@ class DynProg:
         self.states = np.mgrid[-np.pi:np.pi:arg, -8.0:8.0:arg].reshape(2, -1).T
         self.actions = np.linspace(-2, 2, n_sa[1])
 
+
     def train_val_iter(self, discount=0.5):
         """
         Value Iteration algo
         :param n_states:
         :param discount:
-        :return: Vk is the converged V function and cumul_reward is the normalized cumulative reward
+        :return: Vk is the converged V function
         """
         # Init.
         oldvalues = np.zeros((self.n_states,))
@@ -42,6 +44,7 @@ class DynProg:
         while True:
             print("Iteration ", iter)
             newvalues = np.zeros((self.n_states,))
+
             # Iterate over states
             for state, i in zip(self.states, range(self.n_states)):
                 Q_all = []
@@ -49,19 +52,16 @@ class DynProg:
                 for action in self.actions:
                     # Predict next state and reward for given action
                     nxt_state = self.dynamics.predict(torch.Tensor([state[0], state[1], action]))
-                    reward = self.reward.predict(torch.Tensor([state[0], state[1], action]))
-                    reward = np.abs(reward ** -1)
+                    rew = self.reward.predict(torch.Tensor([state[0], state[1], action]))
+                    rew = np.abs(rew ** -1)
 
                     # Find nearest discrete state for predicted next state
                     idx = self.find_nearest(self.states, nxt_state)
 
                     # Compute Q and append
-                    Q_all.append(reward + discount * oldvalues[idx])
+                    Q_all.append(rew + discount * oldvalues[idx])
 
                 newvalues[i] = np.max(np.array(Q_all))
-
-            cumul_reward.append(np.sum(newvalues) / self.n_states)
-            #print(cumul_reward[iter])
 
             # Convergence check
             if (np.abs(oldvalues - newvalues) < 0.1).all():
@@ -70,8 +70,20 @@ class DynProg:
             oldvalues = newvalues[:]
             iter += 1
 
-        cumul_reward = np.sum(np.array(cumul_reward)) / iter if iter > 0 else np.sum(np.array(cumul_reward))
-        return newvalues, cumul_reward
+
+        # Generate policy based on converged Value Function
+        pred_act = []
+        for state in self.states:
+            Q = []
+            for action in self.actions:
+                nxt_state = self.dynamics.predict(torch.Tensor([state[0], state[1], action]))
+                reward = self.reward.predict(torch.Tensor([state[0], state[1], action]))
+                idx = self.find_nearest(self.states, nxt_state)
+                Q.append(reward + discount * oldvalues[idx])
+
+            pred_act.append(self.actions[np.argmax(np.array(Q))])
+
+        return newvalues, [self.states, pred_act]
 
     def train_pol_iter(self, n_states=10000, discount=0.1):
         """
@@ -140,25 +152,6 @@ class DynProg:
 
         policy = [np.argmax(policy[state_num]) for state_num in range(self.n_states)]
         return policy, Vk
-
-    def max_action(self, V, R, discount):
-        """Computes the V function. That is the maximum of the V parameter (Current possible rewards)
-        """
-        return max(V)
-
-    def find_policy(self, V):
-        """Finds an optimal policy for a state for 15 time steps, given the V function
-        """
-        return np.argmax(V)
-
-    def calc_reward(self, currVt, s, a):
-        """Calculates a Q value for a given state-action pair
-        """
-        # i = s[0] + a[0]
-        # j = s[1] + a[1]
-        # Return reward
-        # return currVt[i][j]
-        return 0
 
     def find_nearest(self, array, value):
         return ((array - value) ** 2).sum(1).argmin()
