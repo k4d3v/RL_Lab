@@ -29,7 +29,7 @@ class DynProg:
         self.actions = np.linspace(-2, 2, n_sa[1])
 
 
-    def train_val_iter(self, discount=0.5):
+    def train_val_iter(self, discount=0.9):
         """
         Value Iteration algo
         :param n_states:
@@ -38,7 +38,6 @@ class DynProg:
         """
         # Init.
         oldvalues = np.zeros((self.n_states,))
-        cumul_reward = []
 
         iter = 0
         while True:
@@ -78,6 +77,7 @@ class DynProg:
             for action in self.actions:
                 nxt_state = self.dynamics.predict(torch.Tensor([state[0], state[1], action]))
                 reward = self.reward.predict(torch.Tensor([state[0], state[1], action]))
+                reward = np.abs(reward ** -1)
                 idx = self.find_nearest(self.states, nxt_state)
                 Q.append(reward + discount * oldvalues[idx])
 
@@ -85,7 +85,7 @@ class DynProg:
 
         return newvalues, [self.states, pred_act]
 
-    def train_pol_iter(self, n_states=10000, discount=0.1):
+    def train_pol_iter(self, discount=0.9):
         """
         Policy Iteration algo
         :param n_states:
@@ -95,63 +95,60 @@ class DynProg:
 
         # TODO: Policy Iteration (30)
         # Init
-        Vk, Vk_new = np.zeros((self.n_states,)), np.zeros((self.n_states,))
-        policy = np.tile(np.eye(self.n_actions)[1], (self.n_states, 1))
-        is_stable = False
-        round_num = 0
+        Vk = np.zeros((self.n_states,))
+        # Init. policy uniformly with actions
+        policy = np.random.choice(range(self.n_actions), size=self.n_states)
+        policy_old = policy[:]
 
+        round_num = 0
         # Repeat for policy convergence
-        while not is_stable:
-            is_stable = True
+        while True:
             print("Round Number:", round_num)
-            round_num += 1
             # Repeat for V convergence
             iter = 0
-            cumul_reward = []
+            policy = np.random.choice(range(self.n_actions), size=self.n_states)
             while True:
                 print("Iteration ", iter)
+                Vk_new = np.zeros((self.n_states,))
+                Q_all = np.zeros((self.n_states, self.n_actions))
                 # Iterate over states
                 for state, i in zip(self.states, range(self.n_states)):
-                    Q_all = []
                     # Iterate over actions
-                    for action in self.actions:
+                    for action, j in zip(self.actions, range(self.n_actions)):
                         # Predict next state and reward for given action
                         nxt_state = self.dynamics.predict(torch.Tensor([state[0], state[1], action]))
                         reward = self.reward.predict(torch.Tensor([state[0], state[1], action]))
+                        reward = np.abs(reward**-1)
 
                         # Find nearest discrete state for predicted next state
-                        idx_old = self.find_nearest(self.states, state)
                         idx = self.find_nearest(self.states, nxt_state)
 
                         # Compute Q and append
-                        Q_all.append(reward + discount * Vk[idx])
+                        Q_all[i][j] = reward + discount * Vk[idx]
 
                     # Compute V-Function
-                    Q_all = np.array(Q_all)
-                    Vk_new[i] = np.sum(policy[i] * Q_all)
+                    Vk_new[i] = Q_all[i][policy[i]]
+                    #print("hi")
 
-                print(np.sum(Vk_new))
-                cumul_reward.append(np.sum(Vk_new) / self.n_states)
-                print(cumul_reward[iter])
-
-                # Convergence check
+                # Convergence check for V fun
                 if (np.abs(Vk - Vk_new) < 0.1).all():
                     break
 
                 Vk = Vk_new[:]
                 iter += 1
-                cumul_reward = np.sum(np.array(cumul_reward)) / iter if iter > 0 else np.sum(np.array(cumul_reward))
 
-            # for state_num in range(self.n_states):
-            for state, state_num in zip(self.states, range(self.n_states)):
-                action_by_policy = np.argmax(policy[state_num])
-                best_action, best_action_value = self.next_best_action(state, Vk, discount)
-                policy[state_num] = np.eye(self.n_actions)[best_action]
-                if action_by_policy != best_action:
-                    is_stable = False
+            # Update policy
+            for curr_s in range(self.n_states):
+                policy[curr_s] = np.argmax(Q_all[curr_s][:])
 
-        policy = [np.argmax(policy[state_num]) for state_num in range(self.n_states)]
-        return policy, Vk
+            # Convergence check for policy
+            if (policy_old == policy).all():
+                break
+
+            policy_old = policy[:]
+            round_num += 1
+
+        return Vk_new, [self.states, [self.actions[act] for act in policy]]
 
     def find_nearest(self, array, value):
         return ((array - value) ** 2).sum(1).argmin()

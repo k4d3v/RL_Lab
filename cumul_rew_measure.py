@@ -140,4 +140,5 @@ def compare_rewards_value_iteration(env_name, n_states, n_acts):
 # Qube
 #compare_rewards("Qube-v0", [100, 400, 900, 1600, 2500], [4, 8, 16, 32])
 
-compare_rewards_value_iteration("Pendulum-v2", [1600, 2500, 3600, 4900, 6400], [100])
+#compare_rewards_value_iteration("Pendulum-v2", [1600, 2500, 3600, 4900, 6400], [100])
+compare_rewards_value_iteration("Pendulum-v2", [100, 400], [5, 10])
