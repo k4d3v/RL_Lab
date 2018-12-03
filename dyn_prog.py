@@ -8,14 +8,12 @@ class DynProg:
     Represents the Dynamic Programming algorithm with its two cases Value and Policy Iteration
     """
 
-    def __init__(self, policy, env, reward, dynamics, n_sa=(16, 4)):
+    def __init__(self, env, reward, dynamics, n_sa=(2500, 8)):
         """
-        :param policy: A Gaussian exploration policy
         :param env: The learning environment
         :param reward: A NN trained on the reward function
         :param dynamics: A NN trained on the dynamics function
         """
-        self.policy = policy
         self.env = env
         self.reward = reward
         self.dynamics = dynamics
@@ -32,9 +30,8 @@ class DynProg:
     def train_val_iter(self, discount=0.9):
         """
         Value Iteration algo
-        :param n_states:
-        :param discount:
-        :return: Vk is the converged V function
+        :param discount: Hyperparameter for weighting future rewards
+        :return: Converged V function and states together with optimal policy
         """
         # Init.
         oldvalues = np.zeros((self.n_states,))
@@ -43,6 +40,7 @@ class DynProg:
         while True:
             print("Iteration ", iter)
             newvalues = np.zeros((self.n_states,))
+            pred_acts = []
 
             # Iterate over states
             for state, i in zip(self.states, range(self.n_states)):
@@ -60,7 +58,10 @@ class DynProg:
                     # Compute Q and append
                     Q_all.append(rew + discount * oldvalues[idx])
 
-                newvalues[i] = np.max(np.array(Q_all))
+                # Update V fun and policy
+                Q_all = np.array(Q_all)
+                newvalues[i] = np.max(Q_all)
+                pred_acts.append(self.actions[np.argmax(Q_all)])
 
             # Convergence check
             if (np.abs(oldvalues - newvalues) < 0.1).all():
@@ -69,36 +70,19 @@ class DynProg:
             oldvalues = newvalues[:]
             iter += 1
 
-
-        # Generate policy based on converged Value Function
-        pred_act = []
-        for state in self.states:
-            Q = []
-            for action in self.actions:
-                nxt_state = self.dynamics.predict(torch.Tensor([state[0], state[1], action]))
-                reward = self.reward.predict(torch.Tensor([state[0], state[1], action]))
-                reward = np.abs(reward ** -1)
-                idx = self.find_nearest(self.states, nxt_state)
-                Q.append(reward + discount * oldvalues[idx])
-
-            pred_act.append(self.actions[np.argmax(np.array(Q))])
-
-        return newvalues, [self.states, pred_act]
+        return newvalues, [self.states, pred_acts]
 
     def train_pol_iter(self, discount=0.9):
         """
         Policy Iteration algo
-        :param n_states:
-        :param discount:
-        :return: Vk is the converged V function from the last iteration and policy is the converged policy
+        :param discount: Hyperparameter for weighting future rewards
+        :return: Converged V function and states together with optimal policy
         """
-
-        # TODO: Policy Iteration (30)
         # Init
         Vk = np.zeros((self.n_states,))
         # Init. policy uniformly with actions
         policy = np.random.choice(range(self.n_actions), size=self.n_states)
-        policy_old = policy[:]
+        policy_old = np.copy(policy)
 
         round_num = 0
         # Repeat for policy convergence
@@ -106,7 +90,6 @@ class DynProg:
             print("Round Number:", round_num)
             # Repeat for V convergence
             iter = 0
-            policy = np.random.choice(range(self.n_actions), size=self.n_states)
             while True:
                 print("Iteration ", iter)
                 Vk_new = np.zeros((self.n_states,))
@@ -128,7 +111,6 @@ class DynProg:
 
                     # Compute V-Function
                     Vk_new[i] = Q_all[i][policy[i]]
-                    #print("hi")
 
                 # Convergence check for V fun
                 if (np.abs(Vk - Vk_new) < 0.1).all():
@@ -142,15 +124,21 @@ class DynProg:
                 policy[curr_s] = np.argmax(Q_all[curr_s][:])
 
             # Convergence check for policy
-            if (policy_old == policy).all():
+            if (np.abs(policy_old - policy) < 0.1*self.n_actions).all():
                 break
 
-            policy_old = policy[:]
+            policy_old = np.copy(policy)
             round_num += 1
 
         return Vk_new, [self.states, [self.actions[act] for act in policy]]
 
     def find_nearest(self, array, value):
+        """
+        Finds the nearest discretized state
+        :param array: Contains all discretized states
+        :param value: A sampled state
+        :return: Nearest state to value
+        """
         return ((array - value) ** 2).sum(1).argmin()
 
     def next_best_action(self, state, V, discount):

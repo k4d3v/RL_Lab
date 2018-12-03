@@ -9,7 +9,6 @@ import matplotlib.pyplot as plt
 import torch
 
 from dyn_prog import DynProg
-from policy import RandomExplorationPolicy
 
 
 def plot_results(algo_name, env_name, cumul_rew_list, n_states, n_acts):
@@ -18,9 +17,14 @@ def plot_results(algo_name, env_name, cumul_rew_list, n_states, n_acts):
     :param algo_name: Name of the algorithm
     :param env_name: Name of the environment
     :param cumul_rew_list:
-    :param n_acts: List with different numbers of states
+    :param n_states: List with different numbers of states
     :param n_acts: List with different numbers of actions
     """
+    # Plot random results
+    global rand_rews
+    for ai, i in zip(n_acts, range(len(n_acts))):
+        plt.plot(n_states, rand_rews[i], label="Baseline of random policy, "+str(ai)+" actions")
+
     # Iterate over number of actions and plot curves with values for different state numbers
     for na in range(len(cumul_rew_list)):
         plt.plot(n_states, cumul_rew_list[na], label=str(n_acts[na]) + " actions")
@@ -30,11 +34,41 @@ def plot_results(algo_name, env_name, cumul_rew_list, n_states, n_acts):
     plt.legend()
 
     # Save plot
-    #fig = plt.gcf()
-    #fig.savefig('figures/cumul_rew_' + algo_name + '_comparison_' + env_name + '.png')
+    fig = plt.gcf()
+    fig.savefig('figures/cumul_rew_' + algo_name + '_comparison_' + env_name + '.png')
 
     # Show plot
     plt.show()
+
+
+def evaluate_policy(env_name, pol):
+    """
+    Computes the cumulative reward for a given policy on a 100 episode rollout
+    :param env_name: Name of the environment
+    :param pol: Contains space discretization and optimal actions
+    :return: Total reward
+    """
+    val_env = gym.make(env_name)
+    states, actions = pol
+    total_reward = 0.0
+    for i in range(100):
+
+        # Reset the environment
+        observation = val_env.reset()
+        done = False
+
+        episode_reward = 0.0
+        while not done:
+            idx = ((states - observation) ** 2).sum(1).argmin()
+            action = [actions[idx]]
+            observation, rew, done, _ = val_env.step(action)  # Take action
+            episode_reward += rew
+
+        total_reward += episode_reward
+
+    total_reward /= 100
+    print("Total reward: ", total_reward)
+    return total_reward
 
 
 def compare_rewards(env_name, n_states, n_acts):
@@ -50,8 +84,6 @@ def compare_rewards(env_name, n_states, n_acts):
     dynamics = pickle.load(open("nets/dyn_" + env_name + ".fitnn", "rb"))
 
     env = gym.make(env_name)
-    print("Reward range: ", env.reward_range)
-    policy = RandomExplorationPolicy()
 
     cumul_rew_list1, cumul_rew_list2 = [], []
 
@@ -61,77 +93,58 @@ def compare_rewards(env_name, n_states, n_acts):
         for ns in n_states:
             print("Number of discrete states: ", ns)
 
-            # Train agent
-            agent = DynProg(policy, env, reward, dynamics, (ns, na))
-            _, cumul_rew1 = agent.train_val_iter()
-            cumul_rew_states1.append(cumul_rew1)
+            # Train agents
+            agent = DynProg(env, reward, dynamics, (ns, na))
+            _, pol1 = agent.train_val_iter()
+            _, pol2 = agent.train_pol_iter()
 
-            # Vk2, pol2, cumul_rew2 = agent.train_pol_iter()
+            # Evaluate Policy
+            total_reward1 = evaluate_policy(env_name, pol1)
+            total_reward2 = evaluate_policy(env_name, pol2)
+
+            cumul_rew_states1.append(total_reward1)
+            cumul_rew_states2.append(total_reward2)
 
         cumul_rew_list1.append(cumul_rew_states1)
-        # cumul_rew_list2.append(cumul_rew_states2)
+        cumul_rew_list2.append(cumul_rew_states2)
 
     # Value iteration plot
     plot_results("value_iteration", env_name, cumul_rew_list1, n_states, n_acts)
 
     # Policy iteration plot
-    #plot_results("policy_iteration", env_name, cumul_rew_list2)
+    plot_results("policy_iteration", env_name, cumul_rew_list2, n_states, n_acts)
 
-
-def compare_rewards_value_iteration(env_name, n_states, n_acts):
+def compare_rewards_random(env_name, n_states, n_acts):
     """
-    Trains via Value and Policy Iteration on different discretizations and plots cumulative rewards
-    :param env_name: Name of the current environment
-    :param n_states: List with state space discretizations
-    :param n_acts: List with action space discretizations
+
+    :param env_name:
+    :param n_states:
+    :param n_acts:
+    :return:
     """
-    print(env_name)
-    # Open dynamics and reward NNs
-    reward = pickle.load(open("nets/rew_" + env_name + ".fitnn", 'rb'))
-    dynamics = pickle.load(open("nets/dyn_" + env_name + ".fitnn", "rb"))
-
-    env = gym.make(env_name)
-    policy = RandomExplorationPolicy()
-
     cumul_rew_list1 = []
 
     for na in n_acts:
         print("Number of discrete actions: ", na)
-        cumul_rew_states1, cumul_rew_states2 = [], []
+        cumul_rew_states1 = []
         for ns in n_states:
             print("Number of discrete states: ", ns)
 
-            # Train agent
-            agent = DynProg(policy, env, reward, dynamics, (ns, na))
-            _, pol = agent.train_val_iter()
-
+            # Init. random policy
+            arg = np.sqrt(ns) * 1j
+            sts = np.mgrid[-np.pi:np.pi:arg, -8.0:8.0:arg].reshape(2, -1).T
+            acts = np.linspace(-2, 2, na)
+            pol = [sts, np.random.choice(acts, sts.shape[0])]
 
             # Evaluate Policy
-            val_env = gym.make(env_name)
-            states, actions = pol
-            total_reward = 0.0
-            for i in range(100):
+            total_reward = evaluate_policy(env_name, pol)
 
-                # Reset the environment
-                observation = val_env.reset()
-                done = False
-
-                episode_reward = 0.0
-                while not done:
-                    idx = ((states - observation) ** 2).sum(1).argmin()
-                    action = [actions[idx]]
-                    observation, rew, done, _ = val_env.step(action)  # Take action
-                    episode_reward += rew
-
-                total_reward += episode_reward
-
-            total_reward /= 100.0
             cumul_rew_states1.append(total_reward)
 
         cumul_rew_list1.append(cumul_rew_states1)
 
-    # Value iteration plot
-    plot_results("value_iteration", env_name, cumul_rew_list1, n_states, n_acts)
+    return cumul_rew_list1
+
 
 # Pendulum
 #compare_rewards("Pendulum-v2", [100, 400, 900, 1600, 2500], [4, 8, 16, 32])
@@ -141,4 +154,12 @@ def compare_rewards_value_iteration(env_name, n_states, n_acts):
 #compare_rewards("Qube-v0", [100, 400, 900, 1600, 2500], [4, 8, 16, 32])
 
 #compare_rewards_value_iteration("Pendulum-v2", [1600, 2500, 3600, 4900, 6400], [100])
-compare_rewards_value_iteration("Pendulum-v2", [100, 400], [5, 10])
+
+#sd = [2500, 3600, 4900]
+sd = [900, 1600, 2500]
+#sd = [4, 16]
+ad = [8, 10, 12]
+print("Random results:")
+rand_rews = compare_rewards_random("Pendulum-v2", sd, ad)
+print("-----")
+compare_rewards("Pendulum-v2", sd, ad)

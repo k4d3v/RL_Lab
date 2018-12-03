@@ -8,18 +8,16 @@ import torch
 import numpy as np
 
 from dyn_prog import DynProg
-from policy import RandomExplorationPolicy
 from fun_approximator import FitNN
 
 # Solve for Pendulum
 env = gym.make("Pendulum-v2")
 #env = gym.make("Qube-v0")
-policy = RandomExplorationPolicy()
 
 # Dimension of states
-s_dim = env.reset().shape[0]
-reward = FitNN(s_dim+1, 1, env, False)
-dynamics = FitNN(s_dim+1, s_dim, env, True)
+#s_dim = env.reset().shape[0]
+#reward = FitNN(s_dim+1, 1, env, False)
+#dynamics = FitNN(s_dim+1, s_dim, env, True)
 
 # Sample training data
 print("Rollout policy...")
@@ -39,7 +37,7 @@ env_name = "Pendulum-v2"
 reward = pickle.load(open("nets/rew_" + env_name + ".fitnn", 'rb'))
 dynamics = pickle.load(open("nets/dyn_" + env_name + ".fitnn", "rb"))
 
-agent = DynProg(policy, env, reward, dynamics)
+agent = DynProg(env, reward, dynamics)
 #Vk, pol = agent.train_val_iter()
 Vk, pol = agent.train_pol_iter()
 print(pol)
