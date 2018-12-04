@@ -1,12 +1,11 @@
 """ Trains with different state and action space discretizations and compares the results"""
-import random
 
 import numpy as np
 import pickle
 import gym
 import quanser_robots
 import matplotlib.pyplot as plt
-import torch
+from timeit import default_timer as timer
 
 from dyn_prog import DynProg
 
@@ -93,34 +92,33 @@ def compare_rewards(env_name, n_states, n_acts):
         for ns in n_states:
             print("Number of discrete states: ", ns)
 
-            # Train agents
+            # Train agent
             agent = DynProg(env, reward, dynamics, (ns, na))
             _, pol1 = agent.train_val_iter()
-            _, pol2 = agent.train_pol_iter()
-
             # Evaluate Policy
             total_reward1 = evaluate_policy(env_name, pol1)
-            total_reward2 = evaluate_policy(env_name, pol2)
-
             cumul_rew_states1.append(total_reward1)
-            cumul_rew_states2.append(total_reward2)
+
+            #_, pol2 = agent.train_pol_iter()
+            #total_reward2 = evaluate_policy(env_name, pol2)
+            #cumul_rew_states2.append(total_reward2)
 
         cumul_rew_list1.append(cumul_rew_states1)
-        cumul_rew_list2.append(cumul_rew_states2)
+        #cumul_rew_list2.append(cumul_rew_states2)
 
     # Value iteration plot
     plot_results("value_iteration", env_name, cumul_rew_list1, n_states, n_acts)
 
     # Policy iteration plot
-    plot_results("policy_iteration", env_name, cumul_rew_list2, n_states, n_acts)
+    #plot_results("policy_iteration", env_name, cumul_rew_list2, n_states, n_acts)
 
 def compare_rewards_random(env_name, n_states, n_acts):
     """
-
-    :param env_name:
-    :param n_states:
-    :param n_acts:
-    :return:
+    Evaluates a random policy on different numbers of states and actions
+    :param env_name: Name of the environment
+    :param n_states: List with different numbers of states
+    :param n_acts: List with different numbers of actions
+    :return: List of cumulative rewards for each discretization
     """
     cumul_rew_list1 = []
 
@@ -138,7 +136,6 @@ def compare_rewards_random(env_name, n_states, n_acts):
 
             # Evaluate Policy
             total_reward = evaluate_policy(env_name, pol)
-
             cumul_rew_states1.append(total_reward)
 
         cumul_rew_list1.append(cumul_rew_states1)
@@ -156,10 +153,12 @@ def compare_rewards_random(env_name, n_states, n_acts):
 #compare_rewards_value_iteration("Pendulum-v2", [1600, 2500, 3600, 4900, 6400], [100])
 
 #sd = [2500, 3600, 4900]
-sd = [900, 1600, 2500]
+sd = [2500, 3025, 3600]
 #sd = [4, 16]
-ad = [8, 10, 12]
+ad = [200, 400, 600]
 print("Random results:")
 rand_rews = compare_rewards_random("Pendulum-v2", sd, ad)
 print("-----")
+start = timer()
 compare_rewards("Pendulum-v2", sd, ad)
+print("Total time: ", timer()-start)

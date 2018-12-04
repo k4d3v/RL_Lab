@@ -2,6 +2,8 @@ import numpy as np
 import torch
 from scipy import spatial
 import math
+from timeit import default_timer as timer
+
 
 class DynProg:
     """
@@ -25,7 +27,7 @@ class DynProg:
         # TODO: Going beyond +-pi is outside of range of learnt reward and dynamics funs!  Maybe choose other vals
         self.states = np.mgrid[-np.pi:np.pi:arg, -8.0:8.0:arg].reshape(2, -1).T
         self.actions = np.linspace(-2, 2, n_sa[1])
-
+        self.build_model()
 
     def train_val_iter(self, discount=0.9):
         """
@@ -33,38 +35,35 @@ class DynProg:
         :param discount: Hyperparameter for weighting future rewards
         :return: Converged V function and states together with optimal policy
         """
+        start = timer()
         # Init.
         oldvalues = np.zeros((self.n_states,))
-
         iter = 0
         while True:
-            print("Iteration ", iter)
+            # print("Iteration ", iter)
             newvalues = np.zeros((self.n_states,))
             pred_acts = []
 
             # Iterate over states
-            for state, i in zip(self.states, range(self.n_states)):
+            for s in range(self.n_states):
                 Q_all = []
                 # Iterate over actions
-                for action in self.actions:
+                for a in range(self.n_actions):
                     # Predict next state and reward for given action
-                    nxt_state = self.dynamics.predict(torch.Tensor([state[0], state[1], action]))
-                    rew = self.reward.predict(torch.Tensor([state[0], state[1], action]))
-                    rew = np.abs(rew ** -1)
-
-                    # Find nearest discrete state for predicted next state
-                    idx = self.find_nearest(self.states, nxt_state)
+                    nxt_state, idx = self.dynamics_matrix[s][a]
+                    rew = self.reward_matrix[s][a]
 
                     # Compute Q and append
                     Q_all.append(rew + discount * oldvalues[idx])
 
                 # Update V fun and policy
                 Q_all = np.array(Q_all)
-                newvalues[i] = np.max(Q_all)
+                newvalues[s] = np.max(Q_all)
                 pred_acts.append(self.actions[np.argmax(Q_all)])
 
             # Convergence check
             if (np.abs(oldvalues - newvalues) < 0.1).all():
+                print("val_iter done", timer() - start)
                 break
 
             oldvalues = newvalues[:]
@@ -78,6 +77,7 @@ class DynProg:
         :param discount: Hyperparameter for weighting future rewards
         :return: Converged V function and states together with optimal policy
         """
+        start = timer()
         # Init
         Vk = np.zeros((self.n_states,))
         # Init. policy uniformly with actions
@@ -87,30 +87,26 @@ class DynProg:
         round_num = 0
         # Repeat for policy convergence
         while True:
-            print("Round Number:", round_num)
+            # print("Round Number:", round_num)
             # Repeat for V convergence
             iter = 0
             while True:
-                print("Iteration ", iter)
+                # print("Iteration ", iter)
                 Vk_new = np.zeros((self.n_states,))
                 Q_all = np.zeros((self.n_states, self.n_actions))
                 # Iterate over states
-                for state, i in zip(self.states, range(self.n_states)):
+                for s in range(self.n_states):
                     # Iterate over actions
-                    for action, j in zip(self.actions, range(self.n_actions)):
+                    for a in range(self.n_actions):
                         # Predict next state and reward for given action
-                        nxt_state = self.dynamics.predict(torch.Tensor([state[0], state[1], action]))
-                        reward = self.reward.predict(torch.Tensor([state[0], state[1], action]))
-                        reward = np.abs(reward**-1)
-
-                        # Find nearest discrete state for predicted next state
-                        idx = self.find_nearest(self.states, nxt_state)
+                        nxt_state, idx = self.dynamics_matrix[s][a]
+                        reward = self.reward_matrix[s][a]
 
                         # Compute Q and append
-                        Q_all[i][j] = reward + discount * Vk[idx]
+                        Q_all[s][a] = reward + discount * Vk[idx]
 
                     # Compute V-Function
-                    Vk_new[i] = Q_all[i][policy[i]]
+                    Vk_new[s] = Q_all[s][policy[s]]
 
                 # Convergence check for V fun
                 if (np.abs(Vk - Vk_new) < 0.1).all():
@@ -124,7 +120,8 @@ class DynProg:
                 policy[curr_s] = np.argmax(Q_all[curr_s][:])
 
             # Convergence check for policy
-            if (np.abs(policy_old - policy) < 0.1*self.n_actions).all():
+            if (np.abs(policy_old - policy) < 0.1 * self.n_actions).all():
+                print("pol_iter done", timer() - start)
                 break
 
             policy_old = np.copy(policy)
@@ -141,14 +138,25 @@ class DynProg:
         """
         return ((array - value) ** 2).sum(1).argmin()
 
-    def next_best_action(self, state, V, discount):
-        action_values = np.zeros(self.n_actions)
-        for action_num in range(self.n_actions):
-            # Predict next state and reward for given action
-            nxt_state = self.dynamics.predict(torch.Tensor([state[0], state[1], action_num]))
-            reward = self.reward.predict(torch.Tensor([state[0], state[1], action_num]))
+    def build_model(self):
+        """
+        Stores each possible reward and next state based on the learnt models
+        """
+        self.reward_matrix = np.zeros((self.n_states, self.n_actions))
+        self.dynamics_matrix = []
 
-            # Find nearest discrete state for predicted next state
-            idx = self.find_nearest(self.states, nxt_state)
-            action_values[action_num] += (reward + discount * V[idx])
-        return np.argmax(action_values), np.max(action_values)
+        # Predict each possible state and reward
+        for s, state in zip(range(self.n_states), self.states):
+            dynamics_row = []
+            for a, action in zip(range(self.n_actions), self.actions):
+                # Predict, transform and save reward
+                rew = self.reward.predict(torch.Tensor([state[0], state[1], action]))
+                self.reward_matrix[s][a] = np.abs(rew ** -1)
+
+                # Predict, discretize and save state
+                nxt_state = self.dynamics.predict(torch.Tensor([state[0], state[1], action]))
+                idx = self.find_nearest(self.states, nxt_state)
+                dynamics_row.append((self.states[idx], idx))
+
+            self.dynamics_matrix.append(np.array(dynamics_row))
+        self.dynamics_matrix = np.array(self.dynamics_matrix)
