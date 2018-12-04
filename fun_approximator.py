@@ -45,6 +45,8 @@ class FitNN:
         Initialize the NN
         :param input: Input dimension
         :param output: Output dimension
+        :param env: Learning environment
+        :param dyn: True, if dynamics should be learned. False for reward.
         """
         self.model = ThreeLayerNet(input, 200, 100, output)
         self.criterion = torch.nn.MSELoss(reduction='elementwise_mean')
@@ -55,6 +57,10 @@ class FitNN:
     def fit_batch(self, x, y, epochs, batch_size):
         """
         Fits the NN onto training data points
+        :param x: Training input
+        :param y: Training output
+        :param epochs: Number of training epochs
+        :param batch_size: Size of each batch
         """
         start = timer()
         print("Total-Loss before Fitting: ", self.validate_model(x, y))
@@ -89,6 +95,7 @@ class FitNN:
     def rollout(self, num):
         """
         Rolls out the policy for num timesteps
+        :param num: Number of points to collect
         """
         points = []
         points_collected = 0
@@ -110,6 +117,8 @@ class FitNN:
     def learn(self, points, epoches, batch_size):
         """
         Fit a model for predicting reward or dynamics
+        :param batch_size:
+        :param epoches:
         :param dyn: If True, learn dynamics. Else learn reward
         :param points: Trajectory samples for learning
         """
@@ -128,7 +137,6 @@ class FitNN:
     def validate_on_new_points(self, num):
         """
         Validate a Model on new Points.
-        :param dyn: If True, validate dynamics. Else validate reward
         :param num: Number of Points used
         :return Average Loss per Point
         """
@@ -144,7 +152,11 @@ class FitNN:
         self.total_loss = total_loss / num
 
     def prepare_points(self, points):
-        """ Prepares points for training based on NN type (reward or dynamics learning)"""
+        """
+        Prepares points for training based on NN type (reward or dynamics learning)
+        :param points: Trajecotry samples
+        :return: x, y as torch Tensors
+        """
         x, y = [], []
         for point in points:
             old, new, act, rew = point

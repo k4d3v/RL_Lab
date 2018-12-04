@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from timeit import default_timer as timer
 
 from dyn_prog import DynProg
+from build_model import ModelBuilder
 
 
 def plot_results(algo_name, env_name, cumul_rew_list, n_states, n_acts):
@@ -40,7 +41,7 @@ def plot_results(algo_name, env_name, cumul_rew_list, n_states, n_acts):
     plt.show()
 
 
-def evaluate_policy(env_name, pol):
+def evaluate_policy(env_name, pol, model=None):
     """
     Computes the cumulative reward for a given policy on a 100 episode rollout
     :param env_name: Name of the environment
@@ -60,8 +61,15 @@ def evaluate_policy(env_name, pol):
         while not done:
             idx = ((states - observation) ** 2).sum(1).argmin()
             action = [actions[idx]]
+
+            # For debugging
+            if model is not None:
+                a_idx = list(model.actions).index(action)
+                pr = model.reward_matrix[idx][a_idx]
+                ps = model.dynamics_matrix[idx][a_idx]
+
             observation, rew, done, _ = val_env.step(action)  # Take action
-            episode_reward += rew
+            episode_reward += np.abs(rew**-1)
 
         total_reward += episode_reward
 
@@ -78,11 +86,6 @@ def compare_rewards(env_name, n_states, n_acts):
     :param n_acts: List with action space discretizations
     """
     print(env_name)
-    # Open dynamics and reward NNs
-    reward = pickle.load(open("nets/rew_" + env_name + ".fitnn", 'rb'))
-    dynamics = pickle.load(open("nets/dyn_" + env_name + ".fitnn", "rb"))
-
-    env = gym.make(env_name)
 
     cumul_rew_list1, cumul_rew_list2 = [], []
 
@@ -92,11 +95,15 @@ def compare_rewards(env_name, n_states, n_acts):
         for ns in n_states:
             print("Number of discrete states: ", ns)
 
+            # Load model
+            model = ModelBuilder(env_name, (ns, na))
+            model.load_model()
+
             # Train agent
-            agent = DynProg(env, reward, dynamics, (ns, na))
+            agent = DynProg(model)
             _, pol1 = agent.train_val_iter()
             # Evaluate Policy
-            total_reward1 = evaluate_policy(env_name, pol1)
+            total_reward1 = evaluate_policy(env_name, pol1, model)
             cumul_rew_states1.append(total_reward1)
 
             #_, pol2 = agent.train_pol_iter()
@@ -143,19 +150,12 @@ def compare_rewards_random(env_name, n_states, n_acts):
     return cumul_rew_list1
 
 
-# Pendulum
-#compare_rewards("Pendulum-v2", [100, 400, 900, 1600, 2500], [4, 8, 16, 32])
-#compare_rewards("Pendulum-v2", [4, 9, 16, 25], [2, 4, 8])
+### Pendulum
+sd = [1600, 2500, 3025]
+ad = [200, 400, 600, 800]
+pickle.dump(sd, open("discretizations/sd_Pendulum-v2.arr", 'wb'))
+pickle.dump(ad, open("discretizations/ad_Pendulum-v2.arr", 'wb'))
 
-# Qube
-#compare_rewards("Qube-v0", [100, 400, 900, 1600, 2500], [4, 8, 16, 32])
-
-#compare_rewards_value_iteration("Pendulum-v2", [1600, 2500, 3600, 4900, 6400], [100])
-
-#sd = [2500, 3600, 4900]
-sd = [2500, 3025, 3600]
-#sd = [4, 16]
-ad = [200, 400, 600]
 print("Random results:")
 rand_rews = compare_rewards_random("Pendulum-v2", sd, ad)
 print("-----")

@@ -42,7 +42,7 @@ def compare_models(env_name, max_samples):
     # Make it pretty!
     plt.plot(ns, loss_rew, label="Reward learning")
     plt.plot(ns, loss_dyn, label="Dynamics learning")
-    plt.title("Comparison of learning for different number of samples")
+    plt.title("Comparison of learning for different number of samples, "+env_name)
     plt.xlabel("Number of samples")
     plt.ylabel("Total loss after training")
     plt.legend()
@@ -55,7 +55,7 @@ def compare_models(env_name, max_samples):
     plt.show()
 
 # Pendulum
-#compare_models("Pendulum-v2", 10000)
+compare_models("Pendulum-v2", 10000)
 
 # Qube
 compare_models("Qube-v0", 25000)
