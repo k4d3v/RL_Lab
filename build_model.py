@@ -11,7 +11,8 @@ class ModelBuilder:
     """
     Represents a descrete model of the world (dynamics and reward)
     """
-    def __init__(self, env_name, n_sa=(2500, 1000)):
+
+    def __init__(self, env_name):
         """
         :param env_name: Name of the learning environment
         :param reward: A NN trained on the reward function
@@ -19,21 +20,22 @@ class ModelBuilder:
         :param n_sa: Tuple containing the number of states and actions
         """
         self.env_name = env_name
-        self.n_states = n_sa[0]
-        self.n_actions = n_sa[1]
-        # State space discretization
-        # Doc: States between (-pi,-8) and (pi,8) and action between -2 and 2
-        arg = np.sqrt(self.n_states) * 1j
-        # TODO: Going beyond +-pi is outside of range of learnt reward and dynamics funs!  Maybe choose other vals
-        self.states = np.mgrid[-np.pi:np.pi:arg, -8.0:8.0:arg].reshape(2, -1).T
-        self.actions = np.linspace(-2, 2, n_sa[1])
 
-    def build_model(self, reward, dynamics):
+    def build_model(self, reward, dynamics, points, n_sa):
         """
         Stores each possible reward and next state based on the learnt models
         :param reward: A NN trained on rewards
         :param dynamics: A NN trained on dynamics
         """
+        self.n_states = n_sa[0]
+        self.n_actions = n_sa[1]
+        # State space discretization
+        # Doc: States between (-pi,-8) and (pi,8) and action between -2 and 2
+        # TODO: Going beyond +-pi is outside of range of learnt reward and dynamics funs!  Maybe choose other vals
+        # self.states = np.mgrid[-np.pi:np.pi:arg, -8.0:8.0:arg].reshape(2, -1).T
+        self.states = np.array([p[0] for p in points[:n_sa[0]]])
+        self.actions = np.linspace(-2, 2, n_sa[1])
+
         start = timer()
         self.reward_matrix = np.zeros((self.n_states, self.n_actions))
         self.dynamics_matrix = []
@@ -62,28 +64,21 @@ class ModelBuilder:
         :param value: A sampled state
         :return: Nearest state to value
         """
-        return ((array - value) ** 2).sum(1).argmin()
+        return ((np.array(array) - value) ** 2).sum(1).argmin()
 
     def save_model(self):
         """
         Save model reward and dynamics matrix in files
         """
-        pickle.dump(self.reward_matrix,
+        pickle.dump(self,
                     open(
-                        "models/rew_" +
-                        self.env_name + "_" + str(self.n_states) + "_" + str(self.n_actions) + ".mod", 'wb'))
-        pickle.dump(self.dynamics_matrix,
-                    open(
-                        "models/dyn_" +
+                        "models/" +
                         self.env_name + "_" + str(self.n_states) + "_" + str(self.n_actions) + ".mod", 'wb'))
 
-    def load_model(self):
-        """
-        Load reward and dynamics matrix from files
-        """
-        self.reward_matrix = \
-            pickle.load(open(
-                "models/rew_" + self.env_name + "_" + str(self.n_states) + "_" + str(self.n_actions) + ".mod", 'rb'))
-        self.dynamics_matrix = \
-            pickle.load(open(
-                "models/dyn_" + self.env_name + "_" + str(self.n_states) + "_" + str(self.n_actions) + ".mod", "rb"))
+
+def load_model(env_name, n_sa):
+    """
+    Load reward and dynamics matrix from files
+    """
+    return pickle.load(open(
+        "models/" + env_name + "_" + str(n_sa[0]) + "_" + str(n_sa[1]) + ".mod", 'rb'))

@@ -6,9 +6,10 @@ import gym
 import quanser_robots
 import matplotlib.pyplot as plt
 from timeit import default_timer as timer
+import torch
 
 from dyn_prog import DynProg
-from build_model import ModelBuilder
+from build_model import load_model
 
 
 def plot_results(algo_name, env_name, cumul_rew_list, n_states, n_acts):
@@ -62,11 +63,31 @@ def evaluate_policy(env_name, pol, model=None):
             idx = ((states - observation) ** 2).sum(1).argmin()
             action = [actions[idx]]
 
+            """
             # For debugging
             if model is not None:
-                a_idx = list(model.actions).index(action)
+                r = 32.68376077105409
+                idx = ((states - [0.122517, 0.394786]) ** 2).sum(1).argmin()
+
+                dist = np.inf
+                for a, i in zip(actions, range(len(actions))):
+                    if np.abs(a - -0.018018) < dist:
+                        dist = np.abs(a - -0.018018)
+                        a_idx = i
+                a = actions[a_idx]
+                #a_idx = list(model.actions).index([-0.018018])
+
                 pr = model.reward_matrix[idx][a_idx]
                 ps = model.dynamics_matrix[idx][a_idx]
+
+                reward = pickle.load(open("nets/rew_" + env_name + ".fitnn", 'rb'))
+
+                prrrr = np.abs(reward.predict(torch.Tensor(np.append(model.states[idx], a)))**-1)
+
+                prr = np.abs(reward.predict(torch.Tensor(np.append([0.122517, 0.394786], a)))**-1)
+                prrr = np.abs(reward.predict(torch.Tensor(np.append([0.122517, 0.394786], -0.018018)))**-1)
+                print("hi")
+                """
 
             observation, rew, done, _ = val_env.step(action)  # Take action
             episode_reward += np.abs(rew**-1)
@@ -96,8 +117,7 @@ def compare_rewards(env_name, n_states, n_acts):
             print("Number of discrete states: ", ns)
 
             # Load model
-            model = ModelBuilder(env_name, (ns, na))
-            model.load_model()
+            model = load_model(env_name, (ns, na))
 
             # Train agent
             agent = DynProg(model)
@@ -106,12 +126,12 @@ def compare_rewards(env_name, n_states, n_acts):
             total_reward1 = evaluate_policy(env_name, pol1, model)
             cumul_rew_states1.append(total_reward1)
 
-            #_, pol2 = agent.train_pol_iter()
-            #total_reward2 = evaluate_policy(env_name, pol2)
-            #cumul_rew_states2.append(total_reward2)
+            _, pol2 = agent.train_pol_iter()
+            total_reward2 = evaluate_policy(env_name, pol2)
+            cumul_rew_states2.append(total_reward2)
 
         cumul_rew_list1.append(cumul_rew_states1)
-        #cumul_rew_list2.append(cumul_rew_states2)
+        cumul_rew_list2.append(cumul_rew_states2)
 
     # Value iteration plot
     plot_results("value_iteration", env_name, cumul_rew_list1, n_states, n_acts)
@@ -151,8 +171,11 @@ def compare_rewards_random(env_name, n_states, n_acts):
 
 
 ### Pendulum
-sd = [1600, 2500, 3025]
-ad = [200, 400, 600, 800]
+sd = [1600, 2500]
+#ad = [200, 400, 600, 800]
+#sd = [100, 400]
+ad = [2, 4, 8]
+
 pickle.dump(sd, open("discretizations/sd_Pendulum-v2.arr", 'wb'))
 pickle.dump(ad, open("discretizations/ad_Pendulum-v2.arr", 'wb'))
 
@@ -162,3 +185,4 @@ print("-----")
 start = timer()
 compare_rewards("Pendulum-v2", sd, ad)
 print("Total time: ", timer()-start)
+

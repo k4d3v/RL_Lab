@@ -47,8 +47,8 @@ ad = pickle.load(open("discretizations/ad_"+env_name + ".arr", "rb"))
 for s in sd:
     for a in ad:
         print("Building model")
-        mb = ModelBuilder(env_name, (s, a))
-        mb.build_model(reward, dynamics)
+        mb = ModelBuilder(env_name)
+        mb.build_model(reward, dynamics, points, (s, a))
         mb.save_model()
 
 print("Done")
