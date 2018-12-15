@@ -1,3 +1,5 @@
+import random
+
 import numpy as np
 import pickle
 import gym
@@ -12,7 +14,7 @@ class ModelBuilder:
     Represents a descrete model of the world (dynamics and reward)
     """
 
-    def __init__(self, env_name):
+    def __init__(self, env_name, reward, dynamics1, dynamics2):
         """
         :param env_name: Name of the learning environment
         :param reward: A NN trained on the reward function
@@ -20,8 +22,12 @@ class ModelBuilder:
         :param n_sa: Tuple containing the number of states and actions
         """
         self.env_name = env_name
+        self.reward = reward
+        self.dynamics1 = dynamics1
+        self.dynamics2 = dynamics2
 
-    def build_model(self, reward, dynamics, points, n_sa):
+
+    def build_model(self, points, n_sa):
         """
         Stores each possible reward and next state based on the learnt models
         :param reward: A NN trained on rewards
@@ -34,8 +40,7 @@ class ModelBuilder:
         # TODO: Going beyond +-pi is outside of range of learnt reward and dynamics funs!  Maybe choose other vals
         # self.states = np.mgrid[-np.pi:np.pi:arg, -8.0:8.0:arg].reshape(2, -1).T
         self.states = np.array([p[0] for p in points[:n_sa[0]]])
-        self.actions = np.linspace(-2, 2, n_sa[1])
-
+        self.actions = [-2, -1, 1, 2]
         start = timer()
         self.reward_matrix = np.zeros((self.n_states, self.n_actions))
         self.dynamics_matrix = []
@@ -45,11 +50,14 @@ class ModelBuilder:
             dynamics_row = []
             for a, action in zip(range(self.n_actions), self.actions):
                 # Predict, transform and save reward
-                rew = reward.predict(torch.Tensor([state[0], state[1], action]))
+                rew = self.reward.predict(torch.Tensor([state[0], state[1], action]))
                 self.reward_matrix[s][a] = np.abs(rew ** -1)
 
                 # Predict, discretize and save state
-                nxt_state = dynamics.predict(torch.Tensor([state[0], state[1], action]))
+                if state[0]<0:
+                    nxt_state = self.dynamics1.predict(torch.Tensor([state[0], state[1], action]))
+                else:
+                    nxt_state = self.dynamics2.predict(torch.Tensor([state[0], state[1], action]))
                 idx = self.find_nearest(self.states, nxt_state)
                 dynamics_row.append((self.states[idx], idx))
 
@@ -75,6 +83,36 @@ class ModelBuilder:
                         "models/" +
                         self.env_name + "_" + str(self.n_states) + "_" + str(self.n_actions) + ".mod", 'wb'))
 
+    def refresh(self, points):
+        start = timer()
+        self.states = list(self.states)
+        for p in points:
+            idx = random.randint(0, len(self.states)-1)
+            del(self.states[idx])
+            self.states.append(p[0])
+            dynamics_row = []
+            for a, act in zip(range(self.n_actions), self.actions):
+                # Predict and save reward
+                self.reward_matrix[idx][a] = np.abs(self.reward.predict((torch.Tensor([p[0][0], p[0][1], act])))**-1)
+
+                # Predict, discretize and save state
+                state = p[0]
+                if state[0]<0:
+                    nxt_state = self.dynamics1.predict(torch.Tensor([state[0], state[1], act]))
+                else:
+                    nxt_state = self.dynamics2.predict(torch.Tensor([state[0], state[1], act]))
+                idx = self.find_nearest(self.states, nxt_state)
+
+                nxt = self.states[idx]
+
+                nxt_real = p[1]
+
+                dynamics_row.append((self.states[idx], idx))
+            self.dynamics_matrix[idx] = np.array(dynamics_row)
+
+        self.states = np.array(self.states)
+
+        print("Model refreshed", timer() - start)
 
 def load_model(env_name, n_sa):
     """

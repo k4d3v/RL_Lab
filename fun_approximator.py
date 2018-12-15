@@ -40,7 +40,7 @@ class FitNN:
     Fit a NN to given points
     """
 
-    def __init__(self, input, output, env, dyn):
+    def __init__(self, input, output, env, dyn, plus=False):
         """
         Initialize the NN
         :param input: Input dimension
@@ -53,6 +53,7 @@ class FitNN:
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-4)
         self.env = env
         self.dyn = dyn
+        self.plus = plus
 
     def fit_batch(self, x, y, epochs, batch_size):
         """
@@ -107,10 +108,17 @@ class FitNN:
 
             while not done and points_collected < num:
                 old_observation = observation
-                action = self.env.action_space.sample()
+                action = np.random.choice([-2, -1, 1, 2],1)
+
                 observation, reward, done, _ = self.env.step(action)  # Take action
                 points.append([old_observation, observation, action, reward])
                 points_collected += 1
+
+        if self.dyn and self.plus:
+            points = [p for p in points if p[0][0]>=0]
+
+        elif self.dyn and not self.plus:
+            points = [p for p in points if p[0][0]<0]
 
         return points
 
