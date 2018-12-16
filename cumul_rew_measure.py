@@ -45,12 +45,11 @@ def plot_results(algo_name, env_name, cumul_rew_list, n_states, n_acts):
     :param n_states: List with different numbers of states
     :param n_acts: List with different numbers of actions
     """
-    """
     # Plot random results
     global rand_rews
     for ai, i in zip(n_acts, range(len(n_acts))):
         plt.plot(n_states, rand_rews[i], label="Baseline of random policy, "+str(ai)+" actions")
-    """
+
     # Iterate over number of actions and plot curves with values for different state numbers
     for na in range(len(cumul_rew_list)):
         plt.plot(n_states, cumul_rew_list[na], label=str(n_acts[na]) + " actions")
@@ -83,7 +82,8 @@ def evaluate_policy(env_name, pol, agent=None):
     val_env = gym.make(env_name)
     states, actions = pol
 
-    plot_pol(states, actions)
+    if agent is not None:
+        plot_pol(states, actions)
 
     total_reward = 0.0
     for i in range(100):
@@ -195,7 +195,7 @@ def compare_rewards_random(env_name, n_states, n_acts):
             # Init. random policy
             arg = np.sqrt(ns) * 1j
             sts = np.mgrid[-np.pi:np.pi:arg, -8.0:8.0:arg].reshape(2, -1).T
-            acts = np.linspace(-2, 2, na)
+            acts = [-2,-1,1,2]
             pol = [sts, np.random.choice(acts, sts.shape[0])]
 
             # Evaluate Policy
@@ -216,9 +216,9 @@ ad = [4]
 pickle.dump(sd, open("discretizations/sd_Pendulum-v2.arr", 'wb'))
 pickle.dump(ad, open("discretizations/ad_Pendulum-v2.arr", 'wb'))
 
-#print("Random results:")
-#rand_rews = compare_rewards_random("Pendulum-v2", sd, ad)
-#print("-----")
+print("Random results:")
+rand_rews = compare_rewards_random("Pendulum-v2", sd, ad)
+print("-----")
 start = timer()
 compare_rewards("Pendulum-v2", sd, ad)
 print("Total time: ", timer()-start)

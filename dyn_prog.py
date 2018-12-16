@@ -13,7 +13,7 @@ class DynProg:
     Represents the Dynamic Programming algorithm with its two cases Value and Policy Iteration
     """
 
-    def __init__(self, model, n_prob=4):
+    def __init__(self, model, n_prob=3):
         """
         :param model: The dynamics and reward model
         """
@@ -23,6 +23,9 @@ class DynProg:
         # Gauss between mu and 3*sigma
         step = 3/self.n_prob
         self.gauss = [normal.pdf(sn*step) for sn in range(self.n_prob)]
+        # Normalize
+        fact = np.sum(self.gauss)**-1
+        self.gauss = [fact*g for g in self.gauss]
 
     def train_val_iter(self, discount=0.9):
         """
@@ -36,7 +39,7 @@ class DynProg:
         oldvalues = np.zeros((self.model.n_states,))
         iter = 0
         while True:
-            print("Iteration ", iter)
+            #print("Iteration ", iter)
             newvalues = np.zeros((self.model.n_states,))
             pred_acts = np.zeros(self.model.n_states)
 
@@ -63,6 +66,7 @@ class DynProg:
                     """
                     # Compute Q and append
                     Q_all[a] = rew + discount * self.gauss_sum(nxt_state, oldvalues, idx)
+                    #Q_all[a] = rew + discount * oldvalues[idx]
 
                 # Update V fun and policy
                 newvalues[s] = np.max(Q_all)
@@ -78,7 +82,7 @@ class DynProg:
 
         return newvalues, [self.model.states, pred_acts]
 
-    def train_pol_iter(self, discount=0.9):
+    def train_pol_iter(self, discount=0.8):
         """
         Policy Iteration algo
         :param discount: Hyperparameter for weighting future rewards
@@ -95,11 +99,11 @@ class DynProg:
         round_num = 0
         # Repeat for policy convergence
         while True:
-            print("Round Number:", round_num)
+            #print("Round Number:", round_num)
             # Repeat for V convergence
             iter = 0
             while True:
-                print("Iteration ", iter)
+                #print("Iteration ", iter)
                 Vk_new = np.zeros((self.model.n_states,))
                 Q_all = np.zeros((self.model.n_states, self.model.n_actions))
                 # Iterate over states
