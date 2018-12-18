@@ -2,5 +2,7 @@
 
 from pilco import PILCO
 
-agent = PILCO()
+env_name = 'CartpoleStabShort-v0'
+
+agent = PILCO(env_name)
 agent.train()

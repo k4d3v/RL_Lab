@@ -6,14 +6,17 @@ import numpy as np
 from opt_params import Opt
 from policy import Policy
 from dyn_model import DynModel
+from settings import create_settings
 
 
 class PILCO:
-    def __init__(self, J=1, N=1):
+    def __init__(self, env_name, J=1, N=1):
         """
+        :param env_name: Name of the environment
         :param J: Number of rollouts
         :param N: Number of iterations
         """
+        self.env_name = env_name
         self.J = J
         self.N = N
 
@@ -26,12 +29,7 @@ class PILCO:
         plant: the dynamical system structure
         cost: cost structure
         """
-        gauss = 0
-        policy = Policy()
-        H = 0
-        plant = 0
-        cost = 0
-        return gauss, policy, H, plant, cost
+        return create_settings(self.env_name)
 
     def train(self):
         # Load settings
