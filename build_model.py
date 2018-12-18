@@ -37,10 +37,18 @@ class ModelBuilder:
         self.n_actions = n_sa[1]
         # State space discretization
         # Doc: States between (-pi,-8) and (pi,8) and action between -2 and 2
-        # TODO: Going beyond +-pi is outside of range of learnt reward and dynamics funs!  Maybe choose other vals
-        # self.states = np.mgrid[-np.pi:np.pi:arg, -8.0:8.0:arg].reshape(2, -1).T
-        self.states = np.array([p[0] for p in points[:n_sa[0]]])
-        self.actions = [-2, -1, 1, 2]
+        # Append unique points to states
+        self.states = [points[0][0]]
+        for p in points:
+            nearest = ((np.array(self.states) - p[0]) ** 2).sum(1)
+            if np.min(nearest) != 0:
+                self.states.append(p[0])
+            if len(self.states) == self.n_states:
+                break
+        self.states = np.array(self.states)
+
+        self.actions = list(np.linspace(-2,2,n_sa[1]+1))
+        self.actions.remove(0)
         start = timer()
         self.reward_matrix = np.zeros((self.n_states, self.n_actions))
         self.dynamics_matrix = []

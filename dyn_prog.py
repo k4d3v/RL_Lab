@@ -39,7 +39,7 @@ class DynProg:
         oldvalues = np.zeros((self.model.n_states,))
         iter = 0
         while True:
-            #print("Iteration ", iter)
+            print("Iteration ", iter)
             newvalues = np.zeros((self.model.n_states,))
             pred_acts = np.zeros(self.model.n_states)
 
@@ -52,18 +52,6 @@ class DynProg:
                     nxt_state, idx = self.model.dynamics_matrix[s][a]
                     rew = self.model.reward_matrix[s][a]
 
-                    """
-                    rew_tru = np.abs((-(self.model.states[s][0]**2
-                                        + 0.1*self.model.states[s][1]**2
-                                        + 0.001*self.model.actions[a]))**-1)
-
-                    best_state_index = ((self.model.states - [0,0]) ** 2).sum(1).argmin()
-                    r_max_pred = \
-                        self.model.reward_matrix[best_state_index][1]
-                    r_max = np.abs((-(0**2
-                                        + 0.1*0**2
-                                        + 0.001*0)+0.000000001)**-1)
-                    """
                     # Compute Q and append
                     Q_all[a] = rew + discount * self.gauss_sum(nxt_state, oldvalues, idx)
                     #Q_all[a] = rew + discount * oldvalues[idx]
@@ -82,7 +70,7 @@ class DynProg:
 
         return newvalues, [self.model.states, pred_acts]
 
-    def train_pol_iter(self, discount=0.8):
+    def train_pol_iter(self, discount=0.7):
         """
         Policy Iteration algo
         :param discount: Hyperparameter for weighting future rewards
@@ -99,11 +87,11 @@ class DynProg:
         round_num = 0
         # Repeat for policy convergence
         while True:
-            #print("Round Number:", round_num)
+            print("Round Number:", round_num)
             # Repeat for V convergence
             iter = 0
             while True:
-                #print("Iteration ", iter)
+                print("Iteration ", iter)
                 Vk_new = np.zeros((self.model.n_states,))
                 Q_all = np.zeros((self.model.n_states, self.model.n_actions))
                 # Iterate over states
@@ -116,6 +104,7 @@ class DynProg:
 
                         # Compute Q and append
                         Q_all[s][a] = reward + discount * self.gauss_sum(nxt_state, Vk, idx)
+                        #Q_all[s][a] = reward + discount * Vk[idx]
 
                     # Compute V-Function
                     Vk_new[s] = Q_all[s][policy[s]]
@@ -148,7 +137,7 @@ class DynProg:
         :param oldvalues: Vk_old
         :return: Weighted sum over values for 5 neighbouring states
         """
-        total = self.gauss[0]*oldvalues[idx]
+        total = self.gauss[0] * oldvalues[idx]
         dists = np.delete(((self.model.states - nxt_state) ** 2).sum(1), idx, 0)
         for x in range(1, self.n_prob):
             # Find state with closest dist

@@ -84,9 +84,7 @@ class FitNN:
 
         end = timer()
         test_x, test_y = self.prepare_points(self.rollout(x.shape[0]))
-        #self.total_loss = self.validate_model(x, y)
         self.total_loss = self.validate_model(test_x, test_y)
-        #self.validate_on_new_points(100)
         print("Total-Loss after Fitting: ", self.total_loss)
         print("Done fitting! Time elapsed: ", end - start)
 
@@ -108,7 +106,8 @@ class FitNN:
 
             while not done and points_collected < num:
                 old_observation = observation
-                action = np.random.choice([-2, -1, 1, 2],1)
+                #action = np.random.choice([-2, -1, 1, 2],1)
+                action = self.env.action_space.sample()
 
                 observation, reward, done, _ = self.env.step(action)  # Take action
                 points.append([old_observation, observation, action, reward])
@@ -141,23 +140,6 @@ class FitNN:
 
     def predict(self, point):
         return self.model(point).data.numpy()
-
-    def validate_on_new_points(self, num):
-        """
-        Validate a Model on new Points.
-        :param num: Number of Points used
-        :return Average Loss per Point
-        """
-        val_points = self.rollout(num)
-        total_loss = 0.0
-        for point in val_points:
-            old, new, act, rew = point
-            if self.dyn:
-                total_loss += np.sum((self.predict(torch.Tensor(np.append(old, act))) - new) ** 2)
-            else:
-                total_loss += np.sum((self.predict(torch.Tensor(np.append(old, act))) - rew) ** 2)
-
-        self.total_loss = total_loss / num
 
     def prepare_points(self, points):
         """

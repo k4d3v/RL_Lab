@@ -4,6 +4,7 @@
 import gym
 import quanser_robots
 import matplotlib.pyplot as plt
+from timeit import default_timer as timer
 
 from fun_approximator import FitNN
 
@@ -36,7 +37,8 @@ def compare_models(env_name, max_samples):
         reward.learn(points, 256, 64)
         loss_rew.append(reward.total_loss)
 
-        dynamics.learn(points, 256, 64)
+        points = dynamics.rollout(n*2)
+        dynamics.learn(points, 1024, 64)
         loss_dyn.append(dynamics.total_loss)
 
     # Make it pretty!
@@ -54,8 +56,12 @@ def compare_models(env_name, max_samples):
     # Show plot
     plt.show()
 
+start = timer()
+
 # Pendulum
 compare_models("Pendulum-v2", 10000)
 
 # Qube
 compare_models("Qube-v0", 25000)
+
+print("Total time: ", timer() - start)
