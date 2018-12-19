@@ -27,6 +27,8 @@ class PILCO:
 
         # Init. environment
         env = gym.make(self.env_name)
+        # Dimension of states
+        s_dim = env.observation_space.shape[0]
 
         # Initial J random rollouts
         data = []
@@ -45,15 +47,18 @@ class PILCO:
             print("Round ", n)
 
             # Learn GP dynamics model using all data (Sec. 2.1)
-            dyn_model = DynModel()
+            dyn_model = DynModel(s_dim)
             dyn_model.train(data)  # TODO: Impl. dyn. model
 
             i = 0
             while True:
                 print("Policy search iteration ", i)
+
+                mu_delta, Sigma_delta = self.approximate_p_delta_t() # TODO
+
                 # Approx. inference for policy evaluation (Sec. 2.2)
                 # Get J^pi(Theta) (10-12), (24)
-                J = self.get_J()  # TODO
+                J = self.get_J(mu_delta, Sigma_delta, dyn_model)  # TODO
 
                 # Policy improvement based on the gradient (Sec. 2.3)
                 # Get the gradient of J (26-30)
@@ -81,8 +86,27 @@ class PILCO:
 
         return Theta
 
-    def get_J(self):
-        return 0
+    def get_J(self, mu_delta, Sigma_delta, dyn_model):
+        """
+        Constructs a gaussian approximation for every p(x_t) based on subsequent one-step predictions and computes the expected values
+        :param mu_delta: Mean of approximated p_delta_t
+        :param Sigma_delta: Std of approximated p_delta_t
+        :param dyn_model: Trained dynamics model
+        :return: J (Expected values)
+        """
+        # Construct gaussian approximation of p(x_t)
+        for t in range(dyn_model.big_t):
+            mu_t = dyn_model.mu+mu_delta
+            Sigma_t = 0
+            acov = 0
+
+        # Compute the expected values
+        E_x_t = 0
+
+        return E_x_t
 
     def get_dJ(self, J):
         return 0
+
+    def approximate_p_delta_t(self):
+        return 0, 0
