@@ -26,16 +26,16 @@ class PILCO:
         # Initial J random rollouts
         data = []
         # Sample controller params
-        Theta = Policy()
+        Theta = Policy(env)
         for j in range(self.J):
             # Apply random control signals and record data
             data.append(Theta.rollout())  # TODO: Impl. rollout
 
             # Sample controller params
-            Theta = Policy()
+            Theta = Policy(env)
 
         # Controlled learning (N iterations)
-        old_Theta = Policy()
+        old_Theta = Policy(env)
         for n in range(self.N):
             print("Round ", n)
 

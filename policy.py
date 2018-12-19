@@ -1,14 +1,21 @@
-""" Represents a policy"""
+""" Represents a RBF policy"""
+
 import numpy as np
+from timeit import default_timer as timer
+
+import torch
 
 
 class Policy():
-    def __init__(self, n_basis=50, dim_theta=305):
+    def __init__(self, env, n_basis=50, dim_theta=305):
         """
         Nonlinear RBF network, used as a state-feedback controller
+        :param env: Environment
         :param n_basis: Number of basis functions
         :param dim_theta: Dimension of each element of Theta
         """
+        self.env = env
+        self.s_dim = self.env.reset().shape[0]
         self.n_basis = n_basis
         self.dim_theta = dim_theta
         # Init. random control param.s
@@ -28,12 +35,35 @@ class Policy():
 
     def rollout(self):
         """
-        Rolls out a policy
-        :param policy: Current policy
-        :return: Sampled data points
+        Samples a traj from performing actions based on the current policy
+        :return: Sampled trajs
         """
-        data = 0
-        return data
+        start = timer()
+
+        # Reset the environment
+        observation = self.env.reset()
+        episode_reward = 0.0
+        done = False
+        traj = []
+
+        while not done:
+            # env.render()
+            point = []
+
+            action = self.get_policy(torch.Tensor(observation).view(self.s_dim, 1))
+
+            point.append(observation)  # Save state to tuple
+            point.append(action)  # Save action to tuple
+            observation, reward, done, _ = self.env.step(action)  # Take action
+            point.append(reward)  # Save reward to tuple
+
+            episode_reward += reward
+            traj.append(point)  # Add Tuple to traj
+
+        end = timer()
+        print("Done rollout, ", end - start)
+        print("Episode reward: ", episode_reward)
+        return traj
 
     def update(self, dJ):
         pass
