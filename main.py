@@ -5,4 +5,4 @@ from pilco import PILCO
 env_name = 'CartpoleStabShort-v0'
 
 agent = PILCO(env_name)
-agent.train()
+optimal_policy = agent.train()

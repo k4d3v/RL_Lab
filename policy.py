@@ -15,23 +15,38 @@ class Policy():
         :param dim_theta: Dimension of each element of Theta
         """
         self.env = env
-        self.s_dim = self.env.reset().shape[0]
+        self.s_dim = self.env.observation_space.shape[0]
         self.n_basis = n_basis
-        self.dim_theta = dim_theta
+        self.dim_theta = dim_theta # TODO: Why R^305!? (See paper)
         # Init. random control param.s
-        W = np.random.normal(size=(self.n_basis, self.dim_theta))
-        Lamb = np.random.normal(size=(self.dim_theta, self.dim_theta))
-        Mu = np.random.normal(size=(self.n_basis, self.dim_theta))
+        W = np.random.normal(size=(self.n_basis))
+        Lamb = np.zeros((self.s_dim, self.s_dim))
+        np.fill_diagonal(Lamb, 1)
+        Mu = np.random.normal(size=(self.n_basis, self.s_dim))
         self.Theta = {"W": W, "Lamb": Lamb, "Mu": Mu}
 
     def get_policy(self, x):
+        """
+        Returns a single control based on observation x
+        :param x: Observation
+        :return: Control
+        """
         sum = 0
         for i in range(self.n_basis):
             sum += self.Theta["W"][i]*self.calc_feature(x, i)
-        return sum
+        return np.array([sum])
 
     def calc_feature(self, x, i):
-        return np.exp(-0.5*(x-self.Theta["Mu"][i]).T*np.linalg.inv(self.Theta["Lamb"])*(x-self.Theta["Mu"][i]))
+        """
+        Calculates a basis function feature
+        :param x: Observation
+        :param i: Number of current basis function
+        :return: phi_i(x)
+        """
+        phi_x = np.exp(-0.5*
+                       np.dot(np.dot(np.transpose(x-self.Theta["Mu"][i]).T, np.linalg.inv(self.Theta["Lamb"])),
+                              (x-self.Theta["Mu"][i])))
+        return phi_x
 
     def rollout(self):
         """
@@ -47,10 +62,10 @@ class Policy():
         traj = []
 
         while not done:
-            # env.render()
+            #self.env.render()
             point = []
 
-            action = self.get_policy(torch.Tensor(observation).view(self.s_dim, 1))
+            action = self.get_policy(np.asarray(observation))
 
             point.append(observation)  # Save state to tuple
             point.append(action)  # Save action to tuple
@@ -60,8 +75,7 @@ class Policy():
             episode_reward += reward
             traj.append(point)  # Add Tuple to traj
 
-        end = timer()
-        print("Done rollout, ", end - start)
+        print("Done rollout, ", timer() - start)
         print("Episode reward: ", episode_reward)
         return traj
 

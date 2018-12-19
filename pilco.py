@@ -1,6 +1,7 @@
 """ An implementation of the PILCO algorithm as shown in
 http://www.icml-2011.org/papers/323_icmlpaper.pdf"""
 import gym
+import quanser_robots
 import numpy as np
 
 from policy import Policy
@@ -19,6 +20,10 @@ class PILCO:
         self.N = N
 
     def train(self):
+        """
+        Perform PILCO algorithm on initial random RBF policy
+        :return: Optimal policy
+        """
 
         # Init. environment
         env = gym.make(self.env_name)
@@ -29,7 +34,7 @@ class PILCO:
         Theta = Policy(env)
         for j in range(self.J):
             # Apply random control signals and record data
-            data.append(Theta.rollout())  # TODO: Impl. rollout
+            data.append(Theta.rollout())
 
             # Sample controller params
             Theta = Policy(env)
@@ -73,6 +78,8 @@ class PILCO:
 
             # Convergence check
             # TODO
+
+        return Theta
 
     def get_J(self):
         return 0
