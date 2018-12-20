@@ -183,29 +183,44 @@ class NPG:
         return all_adv
 
     def compute_adv_fast(self, trajs, vals, gamma=0.95, lamb=0.97):
+        """
+        Computes the advantages based on the sampled trajs
+        See High-Dimensional Continuous Control Using Generalized Advantage Estimation, p.5
+        :param trajs: Sampled trajs
+        :param vals: Approximated value fun
+        :param gamma: Gamma hyperparam
+        :param lamb: Lambda hyperparam
+        :return: Estimated advantages
+        """
         start = timer()
 
         all_adv = []
 
         trajs_rew, gavals = [], []
         for i in range(len(trajs)):
-            trajs_rew.append([p[2] for p in trajs[i]])
+            # Get rewards from data
+            trajs_rew.append(np.array([p[2] for p in trajs[i]]))
+
+            # Compute gamma*v for each point on the trajectory and shift the vector one to the left
             first = [gamma*v for v in vals[i]]
             first.append(np.array([0]))
-            gavals.append(first[1:])
+            gavals.append(np.array(first[1:]).reshape(-1,))
+
+            # Reshape vals
+            vals[i] = np.array(vals[i]).reshape(-1,)
 
         for i in range(len(trajs)):
-            atraj_rews = np.array(trajs_rew[i])
-            agavals = np.array(gavals[i]).reshape(-1,)
-            avals = np.array(vals[i]).reshape(-1,)
-            curr_sum = np.subtract(np.add(atraj_rews, agavals), avals)
+            # traj + gamma*vals - vals
+            curr_sum = np.subtract(np.add(trajs_rew[i], gavals[i]), vals[i])
 
             adv_row = []
             for j in range(len(trajs[i])):
+                # Sum up all entries delta, multiplied by (gamma*lambda)^l, starting at j
                 l_sum = curr_sum[j:]
                 l_sum = [((gamma*lamb)**l)*l_sum[l] for l in range(l_sum.shape[0])]
                 adv_row.append(np.sum(l_sum))
 
+            # Append advantages for each trajectory
             all_adv.append(adv_row)
 
         end = timer()
