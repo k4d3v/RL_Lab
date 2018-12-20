@@ -36,11 +36,11 @@ class NPG:
 
             # Compute advantages
             vals = self.val.predict(trajs)
-            adv = self.compute_adv(trajs, vals)
+            #adv = self.compute_adv(trajs, vals)
             adv_false = self.compute_adv_fast(trajs, vals)
 
             # Compute Vanilla Policy Gradient (2)
-            vanilla_gradient = self.vanilla_pol_grad(log_prob_grads, adv)
+            vanilla_gradient = self.vanilla_pol_grad(log_prob_grads, adv_false)
 
             # Compute Fisher Information Metric (4)
             fish = self.fisher(log_prob_grads)
@@ -188,23 +188,23 @@ class NPG:
         all_adv = []
 
         trajs_rew, gavals = [], []
-        trajs = [traj[:-1] for traj in trajs]
         for i in range(len(trajs)):
             trajs_rew.append([p[2] for p in trajs[i]])
-            gavals.append([gamma*v for v in vals[i]])
-        gavals = [gaval[1:] for gaval in gavals]
-        vals = [v_i[:-1] for v_i in vals]
+            first = [gamma*v for v in vals[i]]
+            first.append(np.array([0]))
+            gavals.append(first[1:])
 
         for i in range(len(trajs)):
             atraj_rews = np.array(trajs_rew[i])
             agavals = np.array(gavals[i]).reshape(-1,)
             avals = np.array(vals[i]).reshape(-1,)
-            curr_sum = [((gamma*lamb)**l) for l in range(len(trajs[i]))]*\
-                       np.subtract(np.add(atraj_rews, agavals), avals)
+            curr_sum = np.subtract(np.add(atraj_rews, agavals), avals)
 
             adv_row = []
-            for l in range(len(trajs[i])-1):
-                adv_row.append(np.sum(curr_sum[l:]))
+            for j in range(len(trajs[i])):
+                l_sum = curr_sum[j:]
+                l_sum = [((gamma*lamb)**l)*l_sum[l] for l in range(l_sum.shape[0])]
+                adv_row.append(np.sum(l_sum))
 
             all_adv.append(adv_row)
 
