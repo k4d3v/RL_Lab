@@ -37,6 +37,7 @@ class NPG:
             # Compute advantages
             vals = self.val.predict(trajs)
             adv = self.compute_adv(trajs, vals)
+            adv_false = self.compute_adv_fast(trajs, vals)
 
             # Compute Vanilla Policy Gradient (2)
             vanilla_gradient = self.vanilla_pol_grad(log_prob_grads, adv)
@@ -176,6 +177,36 @@ class NPG:
                     adv += ((gamma*lamb)**l)*delta
                 traj_adv.append(adv)
             all_adv.append(traj_adv)
+
+        end = timer()
+        print("Done advantas, ", end - start)
+        return all_adv
+
+    def compute_adv_fast(self, trajs, vals, gamma=0.95, lamb=0.97):
+        start = timer()
+
+        all_adv = []
+
+        trajs_rew, gavals = [], []
+        trajs = [traj[:-1] for traj in trajs]
+        for i in range(len(trajs)):
+            trajs_rew.append([p[2] for p in trajs[i]])
+            gavals.append([gamma*v for v in vals[i]])
+        gavals = [gaval[1:] for gaval in gavals]
+        vals = [v_i[:-1] for v_i in vals]
+
+        for i in range(len(trajs)):
+            atraj_rews = np.array(trajs_rew[i])
+            agavals = np.array(gavals[i]).reshape(-1,)
+            avals = np.array(vals[i]).reshape(-1,)
+            curr_sum = [((gamma*lamb)**l) for l in range(len(trajs[i]))]*\
+                       np.subtract(np.add(atraj_rews, agavals), avals)
+
+            adv_row = []
+            for l in range(len(trajs[i])-1):
+                adv_row.append(np.sum(curr_sum[l:]))
+
+            all_adv.append(adv_row)
 
         end = timer()
         print("Done advantas, ", end - start)
