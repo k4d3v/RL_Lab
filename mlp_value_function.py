@@ -3,7 +3,6 @@ import torch
 from timeit import default_timer as timer
 
 
-# TODO: Remove HardCoded Stuff. Only usable with action_dim=1 and observation_dim=5
 class ThreeLayerNet(torch.nn.Module):
     """
     Represents a neural network with three layers
@@ -38,13 +37,13 @@ class ValueFunction:
     """
     Represents an approximated value function
     """
-    def __init__(self, discount=0.95):
+    def __init__(self, s_dim, discount=0.95):
         """
         Initialies the value fun
         :param discount: Discount factor
         """
         self.discount = discount
-        self.model = ThreeLayerNet(5, 50, 25, 1)
+        self.model = ThreeLayerNet(s_dim, 50, 25, 1)
         self.criterion = torch.nn.MSELoss()
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-3)
 

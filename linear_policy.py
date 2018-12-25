@@ -80,7 +80,7 @@ class SimpleLinearPolicy:
         :return: Sampled action
         """
         dist = self.get_dist(state)
-        return dist.sample().numpy()
+        return dist.sample().numpy()[0]
 
     def update_params(self, step):
         """

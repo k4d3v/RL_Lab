@@ -1,6 +1,7 @@
 import gym
 import quanser_robots
 from timeit import default_timer as timer
+import pickle
 
 import npg
 import linear_policy
@@ -11,48 +12,57 @@ import evaluate
 Script for testing the NPG implementation
 """
 
-avg_rewards = []
-train_models = 1  # Number of Models that should be trained
+env_names = ['CartpoleStabShort-v0', 'CartpoleStabLong-v0', 'CartpoleSwingShort-v0', 'CartpoleSwingLong-v0', 'BallBalancerSim-v0']
 
-for _ in range(train_models):
+for env_name in env_names:
+    print(env_name)
 
-    print("########################################")
-    # Setup policy, environment and models
-    policy = linear_policy.SimpleLinearPolicy()
-    env = gym.make('CartpoleStabShort-v0')
-    val = mlp_value_function.ValueFunction()
-    model = npg.NPG(policy, env, val)
+    avg_rewards = []
+    train_models = 1  # Number of Models that should be trained
 
-    start = timer()
+    for i in range(train_models):
 
-    # Evaluate Model before learning with 100 rollouts
-    evaluate1 = evaluate.Evaluator(policy, gym.make('CartpoleStabShort-v0'))
-    ev1 = evaluate1.evaluate(100)
+        print("########################################")
+        # Setup policy, environment and models
+        env = gym.make(env_name)
+        s_dim = env.observation_space.shape[0]
+        policy = linear_policy.SimpleLinearPolicy()
+        val = mlp_value_function.ValueFunction(s_dim)
+        model = npg.NPG(policy, env, val)
 
+        start = timer()
 
-    end = timer()
-    print("Done evaluating init. policy, ", end - start)
-
-    start = timer()
-
-    # Train model with 100 Iterations and 10 Trajectories per Iteration
-    model.train(100, 10)
-
-    end = timer()
-    print("Done training, ", end - start)
-
-    start = timer()
-
-    # Evaluate Model after learning with 100 rollouts
-    evaluate2 = evaluate.Evaluator(policy, gym.make('CartpoleStabShort-v0'))
-    ev2 = evaluate2.evaluate(100)
-
-    end = timer()
-    print("Done evaluating learnt policy, ", end - start)
-
-    avg_rewards.append([ev1, ev2])
-    print([ev1, ev2])
+        # Evaluate Model before learning with 100 rollouts
+        evaluate1 = evaluate.Evaluator(policy, gym.make(env_name))
+        ev1 = evaluate1.evaluate(100)
 
 
-print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-print(avg_rewards)
+        end = timer()
+        print("Done evaluating init. policy, ", end - start)
+
+        start = timer()
+
+        # Train model with 100 Iterations and 10 Trajectories per Iteration
+        model.train(100, 10)
+
+        end = timer()
+        print("Done training, ", end - start)
+
+        start = timer()
+
+        # Evaluate Model after learning with 100 rollouts
+        evaluate2 = evaluate.Evaluator(policy, gym.make(env_name))
+        ev2 = evaluate2.evaluate(100)
+
+        end = timer()
+        print("Done evaluating learnt policy, ", end - start)
+
+        # Save current model
+        pickle.dump(policy, open("policies/"+env_name+"_"+str(i)+".slp", "wb"))
+
+        avg_rewards.append([ev1, ev2])
+        print([ev1, ev2])
+
+
+    print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+    print(avg_rewards)

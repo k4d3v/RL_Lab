@@ -15,7 +15,10 @@ class Evaluator:
         self.policy = policy
         self.env = env
 
-    def evaluate(self, n):
+        # State dimension
+        self.s_dim = self.env.observation_space.shape[0]
+
+    def evaluate(self, n, render=False):
         """
         Collect rewards based on actions sampled from the learnt policy
         :param n: Number of rollouts
@@ -33,9 +36,10 @@ class Evaluator:
             done = False
 
             while not done:
-                # env.render()
+                if render:
+                    self.env.render()
 
-                action = self.policy.get_action(torch.Tensor(observation).view(5, 1))
+                action = self.policy.get_action(torch.Tensor(observation).view(self.s_dim, 1))
 
                 observation, reward, done, _ = self.env.step(action)  # Take action
 
