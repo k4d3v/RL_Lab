@@ -5,7 +5,6 @@ from torch.autograd import Variable
 from torch.distributions import Normal
 
 
-# TODO: Remove HardCoded Stuff. Only usable with action_dim=1 and observation_dim=5
 class SimpleLinearPolicy:
     """ Represents a linear policy
     like described in 'Towards Generalization and Simplicity in Continuous Control', p.4"""
