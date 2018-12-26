@@ -267,6 +267,8 @@ class NPG:
                 episode_reward += reward
                 traj.append(point)  # Add Tuple to traj
 
+            # Delete out of bounds (last) point on traj (TODO: Maybe only for ballbal)
+            del traj[-1]
             avg_reward += episode_reward
             trajs.append(traj)
 
