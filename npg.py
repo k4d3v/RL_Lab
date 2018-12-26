@@ -50,8 +50,13 @@ class NPG:
             # Compute gradient ascent step (5)
             step = self.grad_asc_step(vanilla_gradient, fish_inv)
 
+            if all(np.abs(e) < 1e-5 for e in step):
+                print("Convergence!")
+                break
+
             # Update policy parameters
             self.policy.update_params(step.ravel())
+            # TODO: Convergence check (Maybe have a look at step)
             #print("New Params: ", self.policy.get_params())
 
             # Fit value function
@@ -60,7 +65,9 @@ class NPG:
             end = timer()
             print("Done iteration, ", end - start)
 
-    def grad_asc_step(self, vanilla_gradient, fisher_inv, delta=0.01):
+        print("Finished training")
+
+    def grad_asc_step(self, vanilla_gradient, fisher_inv, delta=0.05):
         """
         Computes Theta_k for gradient ascent as in (5)
         :param vanilla_gradient: The policy gradient
