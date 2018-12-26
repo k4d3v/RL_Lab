@@ -26,7 +26,7 @@ for env_name in env_names:
         # Setup policy, environment and models
         env = gym.make(env_name)
         s_dim = env.observation_space.shape[0]
-        policy = linear_policy.SimpleLinearPolicy()
+        policy = linear_policy.SimpleLinearPolicy() # TODO: Maybe try RBF policy
         val = mlp_value_function.ValueFunction(s_dim)
         model = npg.NPG(policy, env, val)
 
@@ -43,7 +43,7 @@ for env_name in env_names:
         start = timer()
 
         # Train model with 100 Iterations and 10 Trajectories per Iteration
-        model.train(100, 10)
+        model.train(150, 10)
 
         end = timer()
         print("Done training, ", end - start)

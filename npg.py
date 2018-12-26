@@ -50,7 +50,7 @@ class NPG:
             # Compute gradient ascent step (5)
             step = self.grad_asc_step(vanilla_gradient, fish_inv)
 
-            if all(np.abs(e) < 1e-5 for e in step):
+            if all(np.abs(e) < 1e-3 for e in step):
                 print("Convergence!")
                 break
 
