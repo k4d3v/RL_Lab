@@ -1,4 +1,5 @@
 import gym
+import numpy as np
 import quanser_robots
 from timeit import default_timer as timer
 import pickle
@@ -19,7 +20,8 @@ for env_name in env_names:
     print(env_name)
 
     avg_rewards = []
-    num_iters = [0, 50, 100, 150, 200]  # Different numbers of iterations
+    #num_iters = [0, 50, 100, 150, 200]  # Different numbers of iterations
+    num_iters = [0, 2, 4, 6, 8]
 
     print("########################################")
     # Setup policy, environment and models
@@ -70,10 +72,15 @@ for env_name in env_names:
     print(avg_rewards)
 
     # Plot rewards together with iterations
+    plt.figure(figsize=(4.5, 3.6))
     plt.plot(num_iters, avg_rewards)
     plt.xlabel("Number of Iterations")
     plt.ylabel("Average Reward on 100 Episodes")
-    plt.title("Average Reward over Iterations, "+env_name)
-    plt.locator_params(axis='x', nbins=len(num_iters))
-    plt.show()
+    plt.title("Average Rewards for "+env_name)
+    plt.xticks(num_iters)
+
+    plt.gcf()
+    plt.savefig("figures/"+env_name+".pdf")
+
+    #plt.show()
     print("Env done")
