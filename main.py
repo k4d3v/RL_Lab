@@ -19,7 +19,7 @@ for env_name in env_names:
     print(env_name)
 
     avg_rewards = []
-    num_iters = [0, 1, 2, 3]  # Different numbers of iterations
+    num_iters = [0, 50, 100, 150, 200]  # Different numbers of iterations
 
     print("########################################")
     # Setup policy, environment and models
@@ -74,5 +74,6 @@ for env_name in env_names:
     plt.xlabel("Number of Iterations")
     plt.ylabel("Average Reward on 100 Episodes")
     plt.title("Average Reward over Iterations, "+env_name)
+    plt.locator_params(axis='x', nbins=len(num_iters))
     plt.show()
     print("Env done")

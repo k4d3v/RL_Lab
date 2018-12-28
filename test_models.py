@@ -22,8 +22,8 @@ env_names = ['CartpoleStabShort-v0', 'CartpoleStabLong-v0', 'CartpoleSwingShort-
 for env_name in env_names:
     print(env_name)
 
-    train_models = 1  # Number of Models that should be trained
+    iters = [150, 200]  # Number of iterations of training
 
-    for i in range(train_models):
+    for i in iters:
         policy = pickle.load(open("policies/"+env_name+"_"+str(i)+".slp", "rb" ))
         test(policy, env_name)
