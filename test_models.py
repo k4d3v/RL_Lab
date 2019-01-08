@@ -10,19 +10,20 @@ def test(policy, env_name):
 
     # Evaluate Model after learning with 100 rollouts
     eval = evaluate.Evaluator(policy, gym.make(env_name))
-    ev = eval.evaluate(10, True)
+    ev = eval.evaluate(2, True)
 
     end = timer()
     print("Done evaluating learnt policy, ", end - start)
     print("Total reward:", ev)
 
 
-env_names = ['CartpoleStabShort-v0', 'CartpoleStabLong-v0', 'CartpoleSwingShort-v0', 'CartpoleSwingLong-v0', 'BallBalancerSim-v0']
+#env_names = ['CartpoleStabShort-v0', 'CartpoleStabLong-v0', 'CartpoleSwingShort-v0', 'CartpoleSwingLong-v0', 'BallBalancerSim-v0']
+env_names = ['BallBalancerSim-v0']
 
 for env_name in env_names:
     print(env_name)
 
-    iters = [150, 200]  # Number of iterations of training
+    iters = [50, 100, 150, 200]  # Number of iterations of training
 
     for i in iters:
         policy = pickle.load(open("policies/"+env_name+"_"+str(i)+".slp", "rb" ))

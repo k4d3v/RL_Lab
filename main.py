@@ -1,3 +1,5 @@
+import random
+
 import gym
 import numpy as np
 import quanser_robots
@@ -14,14 +16,18 @@ import evaluate
 Script for testing the NPG implementation
 """
 
-env_names = ['CartpoleStabShort-v0', 'CartpoleStabLong-v0', 'CartpoleSwingShort-v0', 'CartpoleSwingLong-v0', 'BallBalancerSim-v0']
+random.seed(42)
+#env_names = ['CartpoleStabShort-v0', 'CartpoleStabLong-v0', 'CartpoleSwingShort-v0', 'CartpoleSwingLong-v0', 'BallBalancerSim-v0']
+env_names = ['BallBalancerSim-v0']
 
-for env_name in env_names:
+deltas = [0.05]
+
+for env_name, delta in zip(env_names, deltas):
     print(env_name)
 
     avg_rewards = []
-    #num_iters = [0, 50, 100, 150, 200]  # Different numbers of iterations
-    num_iters = [0, 2, 4, 6, 8]
+    num_iters = [0, 50, 100, 150, 200, 250, 300]  # Different numbers of iterations
+    #num_iters = [0, 2, 4, 6, 8]
 
     print("########################################")
     # Setup policy, environment and models
@@ -29,7 +35,7 @@ for env_name in env_names:
     s_dim = env.observation_space.shape[0]
     policy = linear_policy.SimpleLinearPolicy(s_dim) # TODO: Maybe try RBF policy
     val = mlp_value_function.ValueFunction(s_dim)
-    model = npg.NPG(policy, env, val)
+    model = npg.NPG(policy, env, val, delta)
 
     start = timer()
 

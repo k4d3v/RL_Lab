@@ -7,17 +7,19 @@ class NPG:
     """
     Represents the NPG algorithm
     """
-    def __init__(self, policy, env, val):
+    def __init__(self, policy, env, val, delta=0.03):
         """
         Initializes NPG
         :param policy: A specific stochastic policy
         :param env: The current environment
         :param val: An approximative model for the value function
+        :param delta: Normalized step size
         """
         self.policy = policy
         self.env = env
         self.s_dim = self.env.observation_space.shape[0]
         self.val = val
+        self.delta = delta
 
     def train(self, k, n):
         """
@@ -66,17 +68,16 @@ class NPG:
 
         print("Finished training")
 
-    def grad_asc_step(self, vanilla_gradient, fisher_inv, delta=0.05):
+    def grad_asc_step(self, vanilla_gradient, fisher_inv):
         """
         Computes Theta_k for gradient ascent as in (5)
         :param vanilla_gradient: The policy gradient
         :param fisher_inv: The inverted Fisher matrix
-        :param delta: Normalized step size
         :return: Theta_k as in (5)
         """
         start = timer()
 
-        alpha = np.sqrt(delta / (np.matmul(np.matmul(vanilla_gradient, fisher_inv), vanilla_gradient.T)))
+        alpha = np.sqrt(self.delta / (np.matmul(np.matmul(vanilla_gradient, fisher_inv), vanilla_gradient.T)))
         nat_grad = np.matmul(fisher_inv, vanilla_gradient.T)
 
         end = timer()
@@ -272,7 +273,7 @@ class NPG:
             avg_reward += episode_reward
             trajs.append(traj)
 
-        #print("Avg reward: ", (avg_reward / n))
+        print("Avg reward: ", (avg_reward / n))
         end = timer()
         print("Done rollout, ", end - start)
         return trajs
