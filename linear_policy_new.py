@@ -57,7 +57,7 @@ class SimpleLinearPolicy:
         W = torch.stack(self.W).view(1, self.s_dim)
         mean = torch.mm(W, state) + self.b
 
-        grad_W = [((1 / (self.std ** 2)) * (action - mean)).detach().numpy()[0][0] * s for s in state]
+        grad_W = [((1 / (self.std ** 2)) * (action - mean) * s).detach().numpy()[0][0] for s in state]
         grad_b = ((1 / (self.std ** 2)) * (action - mean)).detach().numpy()[0][0]
         grad_std = ((-1 / (2 * self.std ** 2)) * (1 - (1 / (self.std ** 2)) * (action - mean) ** 2) * 2 * self.std).detach().numpy()[0][0]
         return np.array(grad_W + [grad_b] + [grad_std])

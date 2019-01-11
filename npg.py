@@ -154,8 +154,8 @@ class NPG:
             traj_grads = []
             for timestep in traj:
                 obs, act, _ = timestep
-                grad = self.policy.get_gradient(torch.Tensor(obs).view(self.s_dim, 1), torch.from_numpy(act.ravel()))
-                #grad  = self.policy.get_gradient_analy(torch.Tensor(obs).view(self.s_dim, 1), torch.from_numpy(act.ravel()))
+                #grad = self.policy.get_gradient(torch.Tensor(obs).view(self.s_dim, 1), torch.from_numpy(act.ravel()))
+                grad  = self.policy.get_gradient_analy(torch.Tensor(obs).view(self.s_dim, 1), torch.from_numpy(act.ravel()))
                 traj_grads.append(grad)
             all_grads.append(traj_grads)
 
