@@ -17,10 +17,10 @@ Script for testing the NPG implementation
 """
 
 random.seed(42)
-#env_names = ['CartpoleStabShort-v0', 'CartpoleStabLong-v0', 'CartpoleSwingShort-v0', 'CartpoleSwingLong-v0', 'BallBalancerSim-v0']
-env_names = ['BallBalancerSim-v0']
+env_names = ['CartpoleStabShort-v0', 'CartpoleStabLong-v0', 'CartpoleSwingShort-v0', 'CartpoleSwingLong-v0', 'BallBalancerSim-v0']
+#env_names = ['BallBalancerSim-v0']
 
-deltas = [0.05]
+deltas = [0.05]*5
 
 for env_name, delta in zip(env_names, deltas):
     print(env_name)
@@ -78,7 +78,7 @@ for env_name, delta in zip(env_names, deltas):
     print(avg_rewards)
 
     # Plot rewards together with iterations
-    plt.figure(figsize=(4.5, 3.6))
+    plt.figure(figsize=(4.55, 3.6))
     plt.plot(num_iters, avg_rewards)
     plt.xlabel("Number of Iterations")
     plt.ylabel("Average Reward on 100 Episodes")
