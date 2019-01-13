@@ -20,14 +20,16 @@ random.seed(42)
 env_names = ['CartpoleStabShort-v0', 'CartpoleStabLong-v0', 'CartpoleSwingShort-v0', 'CartpoleSwingLong-v0', 'BallBalancerSim-v0']
 #env_names = ['BallBalancerSim-v0']
 
-deltas = [0.05]*5
+num_iters = [0, 50, 100, 150, 200, 250]  # Different numbers of iterations
 
-for env_name, delta in zip(env_names, deltas):
+deltas = [0.05]*5
+traj_samples_list = [20, 20, 100, 100, 200] # TODO: Finetune
+
+for env_name, delta, traj_samples in zip(env_names, deltas, traj_samples_list):
     print(env_name)
+    init = timer()
 
     avg_rewards = []
-    num_iters = [0, 50, 100, 150, 200, 250, 300]  # Different numbers of iterations
-    #num_iters = [0, 2, 4, 6, 8]
 
     print("########################################")
     # Setup policy, environment and models
@@ -44,8 +46,7 @@ for env_name, delta in zip(env_names, deltas):
     ev_random = evaluate1.evaluate(100)
     print(ev_random)
 
-    end = timer()
-    print("Done evaluating init. policy, ", end - start)
+    print("Done evaluating init. policy, ", timer() - start)
     avg_rewards.append(ev_random)
 
     for i in range(len(num_iters[1:])):
@@ -53,11 +54,10 @@ for env_name, delta in zip(env_names, deltas):
 
         start = timer()
 
-        # Train model with 10 Trajectories per Iteration
-        model.train(iters, 10)
+        # Train model with n Trajectories per Iteration
+        model.train(iters, traj_samples)
 
-        end = timer()
-        print("Done training, ", end - start)
+        print("Done training, ", timer() - start)
 
         start = timer()
 
@@ -65,8 +65,7 @@ for env_name, delta in zip(env_names, deltas):
         evaluate2 = evaluate.Evaluator(policy, gym.make(env_name))
         ev_trained = evaluate2.evaluate(100)
 
-        end = timer()
-        print("Done evaluating learnt policy, ", end - start)
+        print("Done evaluating learnt policy, ", timer() - start)
 
         # Save current model
         pickle.dump(policy, open("policies/"+env_name+"_"+str(num_iters[i+1])+".slp", "wb"))
@@ -78,15 +77,17 @@ for env_name, delta in zip(env_names, deltas):
     print(avg_rewards)
 
     # Plot rewards together with iterations
-    plt.figure(figsize=(4.55, 3.6))
+    plt.figure(figsize=(4.6, 3.6))
     plt.plot(num_iters, avg_rewards)
     plt.xlabel("Number of Iterations")
     plt.ylabel("Average Reward on 100 Episodes")
     plt.title("Average Rewards for "+env_name)
     plt.xticks(num_iters)
+    plt.tight_layout()
 
     plt.gcf()
     plt.savefig("figures/"+env_name+".pdf")
 
     #plt.show()
     print("Env done")
+    print("Time for env: ", timer()-init)

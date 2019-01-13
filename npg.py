@@ -7,7 +7,7 @@ class NPG:
     """
     Represents the NPG algorithm
     """
-    def __init__(self, policy, env, val, delta=0.03):
+    def __init__(self, policy, env, val, delta=0.05):
         """
         Initializes NPG
         :param policy: A specific stochastic policy
@@ -27,6 +27,8 @@ class NPG:
         :param k: Number of iterations
         :param n: Number of sampled trajectories per iteration
         """
+        old_trajs = self.rollout(n)
+
         for i in range(k):
             start = timer()
             print("Iteration: ", i)
@@ -61,7 +63,8 @@ class NPG:
             #print("New Params: ", self.policy.get_params())
 
             # Fit value function
-            self.val.fit(trajs)
+            self.val.fit(old_trajs)
+            old_trajs = trajs[:]
 
             end = timer()
             print("Done iteration, ", end - start)
@@ -269,7 +272,7 @@ class NPG:
                 traj.append(point)  # Add Tuple to traj
 
             # Delete out of bounds (last) point on traj (TODO: Maybe only for ballbal)
-            del traj[-1]
+            #del traj[-1]
             avg_reward += episode_reward
             trajs.append(traj)
 
