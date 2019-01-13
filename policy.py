@@ -1,12 +1,12 @@
-""" Represents a RBF policy"""
-
 import numpy as np
 from timeit import default_timer as timer
-
 import torch
 
 
 class Policy():
+    """
+    Represents a RBF policy
+    """
     def __init__(self, env, n_basis=50, dim_theta=305):
         """
         Nonlinear RBF network, used as a state-feedback controller

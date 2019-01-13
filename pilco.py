@@ -32,23 +32,29 @@ class PILCO:
 
         # Initial J random rollouts
         data = []
-        # Sample controller params
-        Theta = Policy(env)
+        old_Theta = Policy(env)
         for j in range(self.J):
-            # Apply random control signals and record data
-            data.append(Theta.rollout())
-
             # Sample controller params
             Theta = Policy(env)
 
+            # Apply random control signals and record data
+            data.append(Theta.rollout())
+
+        # Learn hyperparams for dynamics GP
+        dyn_model = DynModel(s_dim, data)
+        lambs = dyn_model.estimate_hyperparams()
+
         # Controlled learning (N iterations)
-        old_Theta = Policy(env)
         for n in range(self.N):
             print("Round ", n)
 
             # Learn GP dynamics model using all data (Sec. 2.1)
-            dyn_model = DynModel(s_dim)
-            dyn_model.train(data)  # TODO: Impl. dyn. model
+            dyn_model = DynModel(s_dim, data, lambs) # TODO: Impl. dyn. model
+
+            """ For testing the dyn model accuracy
+            s = np.concatenate((data[0][0][0], data[0][0][1]))
+            m, sig = dyn_model.predict(s)
+            """
 
             i = 0
             while True:
