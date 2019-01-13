@@ -5,17 +5,13 @@ from torch.autograd import Variable
 from torch.distributions import Normal
 
 
-# TODO: Remove HardCoded Stuff. Only usable with action_dim=1 and observation_dim=5
 class SimpleLinearPolicy:
     """ Represents a linear policy
     like described in 'Towards Generalization and Simplicity in Continuous Control', p.4"""
 
-    def __init__(self):
-        self.w1 = Variable(torch.rand(1), requires_grad=True)
-        self.w2 = Variable(torch.rand(1), requires_grad=True)
-        self.w3 = Variable(torch.rand(1), requires_grad=True)
-        self.w4 = Variable(torch.rand(1), requires_grad=True)
-        self.w5 = Variable(torch.rand(1), requires_grad=True)
+    def __init__(self, s_dim):
+        self.s_dim = s_dim
+        self.W = [Variable(torch.rand(1), requires_grad=True) for d in range(self.s_dim)]
         self.b = Variable(torch.rand(1), requires_grad=True)
         self.std = Variable(torch.rand(1), requires_grad=True)
 
@@ -25,7 +21,7 @@ class SimpleLinearPolicy:
         :param state: The current state of the system
         :return: A torch normal distribution
         """
-        W = torch.stack([self.w1, self.w2, self.w3, self.w4, self.w5]).view(1, 5)
+        W = torch.stack(self.W).view(1, self.s_dim)
         mean = torch.mm(W, state) + self.b
         dist = Normal(mean, self.std)
         return dist
@@ -48,7 +44,7 @@ class SimpleLinearPolicy:
         :return: The gradient of log pi
         """
         dist = self.get_dist(state)
-        grads = grad(dist.log_prob(action), [self.w1, self.w2, self.w3, self.w4, self.w5, self.b, self.std])
+        grads = grad(dist.log_prob(action), (self.W + [self.b] + [self.std]))
         return np.array([x.numpy() for x in grads]).ravel()
 
     def get_gradient_analy(self, state, action):
@@ -58,20 +54,13 @@ class SimpleLinearPolicy:
         :param action: Current action
         :return: Analytical log pi gradient
         """
-        W = torch.stack([self.w1, self.w2, self.w3, self.w4, self.w5]).view(1, 5)
+        W = torch.stack(self.W).view(1, self.s_dim)
         mean = torch.mm(W, state) + self.b
 
-        grad_w1 = (1 / (self.std ** 2)) * (action - mean) * state[0]
-        grad_w2 = (1 / (self.std ** 2)) * (action - mean) * state[1]
-        grad_w3 = (1 / (self.std ** 2)) * (action - mean) * state[2]
-        grad_w4 = (1 / (self.std ** 2)) * (action - mean) * state[3]
-        grad_w5 = (1 / (self.std ** 2)) * (action - mean) * state[4]
-        grad_b = (1 / (self.std ** 2)) * (action - mean)
-        grad_std = (-1 / (2 * self.std ** 2)) * (1 - (1 / (self.std ** 2)) * (action - mean) ** 2) * 2 * self.std
-
-        return np.array([grad_w1.detach().numpy()[0][0], grad_w2.detach().numpy()[0][0], grad_w3.detach().numpy()[0][0],
-                         grad_w4.detach().numpy()[0][0], grad_w5.detach().numpy()[0][0], grad_b.detach().numpy()[0][0],
-                         grad_std.detach().numpy()[0][0]])
+        grad_W = [((1 / (self.std ** 2)) * (action - mean) * s).detach().numpy()[0][0] for s in state]
+        grad_b = ((1 / (self.std ** 2)) * (action - mean)).detach().numpy()[0][0]
+        grad_std = ((-1 / (2 * self.std ** 2)) * (1 - (1 / (self.std ** 2)) * (action - mean) ** 2) * 2 * self.std).detach().numpy()[0][0]
+        return np.array(grad_W + [grad_b] + [grad_std])
 
     def get_action(self, state):
         """
@@ -88,17 +77,15 @@ class SimpleLinearPolicy:
         :param step: Theta_k
         :return:
         """
-        self.w1.data += step[0]
-        self.w2.data += step[1]
-        self.w3.data += step[2]
-        self.w4.data += step[3]
-        self.w5.data += step[4]
-        self.b.data += step[5]
-        self.std.data += step[6]
+        for i in range(len(step[:-2])):
+            self.W[i].data += step[i]
+
+        self.b.data += step[-2]
+        self.std.data += step[-1]
 
     def get_params(self):
         """
         Returns the current policy params
         :return: A list with the policy params
         """
-        return [self.w1, self.w2, self.w3, self.w4, self.w5, self.b, self.std]
+        return self.W + [self.b] + [self.std]
