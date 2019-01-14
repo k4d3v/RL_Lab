@@ -30,21 +30,26 @@ class PILCO:
         # Dimension of states
         s_dim = env.observation_space.shape[0]
 
-        # Initial J random rollouts
-        data = []
-        old_policy, policy = Policy(env), Policy(env)
-        for j in range(self.J):
-            # Sample controller params
-            policy = Policy(env)
+        while True:
+            try:
+                # Initial J random rollouts
+                data = []
+                old_policy, policy = Policy(env), Policy(env)
+                for j in range(self.J):
+                    # Sample controller params
+                    policy = Policy(env)
 
-            # Apply random control signals and record data
-            data.append(policy.rollout())
+                    # Apply random control signals and record data
+                    data.append(policy.rollout())
 
-        # Learn hyperparams for dynamics GP
-        dyn_model = DynModel(s_dim, data)
-        print("Average GP error: ", dyn_model.training_error())
+                dyn_model = DynModel(s_dim, data)
+                print("Average GP error before optimizing the hyperparams: ", dyn_model.training_error())
 
-        lambs = dyn_model.estimate_hyperparams()
+                # Learn hyperparams for dynamics GP
+                lambs = dyn_model.estimate_hyperparams()
+                break
+            except ValueError:
+                print("Oops, some stupid numerical problem. Trying again...")
 
         # Controlled learning (N iterations)
         for n in range(self.N):

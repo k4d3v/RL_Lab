@@ -107,9 +107,7 @@ class DynModel:
         Estimates the optimal length-scales for the kernel by maximizing the marginal log-likelihood
         :return: optimal length-scales
         """
-        lambs = [self.s_dim+1]*(self.s_dim+1)
-
-        sig_n = 0.1**2
+        sig_n = 0.1**2 # TODO: Is it really needed?
         y = np.mat(self.y)
         n = self.sigma.shape[0]
 
