@@ -113,5 +113,86 @@ class PILCO:
     def get_dJ(self, J):
         return 0
 
-    def approximate_p_delta_t(self):
-        return 0, 0
+    def approximate_p_delta_t(self, dyn_model):
+        # calculate   mu_delta
+        # init
+        n = len(dyn_model.x)     # input
+        D = 5      # s_dim
+        x_s = dyn_model.x
+        Sigma = dyn_model.sigma
+        mu_s_t_1, Sigma_t_1= dyn_model.predict(dyn_model.x)    # mu_schlange(t-1) is the mean of the "test" input distribution p(x[t-1],u[t-1])
+        q = np.zeros(D, n)
+        y = np.zeros(n, D)   # output
+        v = np.zeros(1, n)
+        length_scale = []    ### nur fuer test, noch nicht bestimmt
+        Lambda = np.zeros(D, D)
+        alpha = np.ones(1, D)    ### nur fuer test, noch nicht bestimmt
+
+        # calculate Lambda, under (6)
+        for i in range(1, D + 1):
+            Lambda[i][i]=length_scale[i]**2
+
+        # calculate   q_ai
+        for a in range(1, D + 1):
+            for i in range(1, n + 1):
+                # (16)
+                v[i] = x_s[i] - mu_s_t_1  # x_schlange and mu_schlange in paper, x_schlange is training input,
+                                             # mu_schlange is the mean of the "test" input distribution p(x[t-1],u[t-1])
+                # (15)
+                q[a][i] = alpha[a] ** 2 / np.sqrt(np.abs(Sigma[t - 1] * np.linalg.inv(Lambda[a]) + np.eye(D))) * np.exp(
+                    (-1 / 2) * v[i].T * np.linalg.inv(Sigma[t - 1] + Lambda[a]) * v[i])   # Sigma[t-1] is variances at time t-1 from GP
+
+        # calculate   K
+        K = np.zeros(1, D) # K for all input und dimension, each term is also a matrix for all input and output
+        K_dim = np.zeros(n, n) # K_dim tmp to save the result of every dimension
+        for a in range(1, D+1):
+            for i in range(1, n+1):
+                for j in range(1, n+1):
+                    # (6)
+                    K_dim[i][j] = alpha**2 *np.exp(-0.5*(x_s[i]-x_s[j]).T *np.linalg.inv(Lambda)*(x_s[i]-x_s[j])) # x_s is x_schlange in paper,training input
+            K[1][a] = K_dim
+
+
+        # calculate   beta, under (14)
+        beta = np.zeros(n, D)
+        for a in range(1, D + 1):
+            beta[:, a] = np.linalg.inv(K[1][a]) * y[:, a]
+
+        # calculate   mu_delta (14)
+        mu_delta = []
+        for a in range(1, D + 1):
+            mu_delta[a] = beta[:, a].T * q[a, :]
+
+        # calculate   k
+        k = np.zeros(1, D)  # k for all input und dimension, each term is also a matrix for all input and output
+        k_dim = np.zeros(n, n)  # k_dim tmp to save the result of every dimension
+        for a in range(1, D + 1):
+            for i in range(1, n + 1):
+                for j in range(1, n + 1):
+                    # (6)
+                    k_dim[i][j] = alpha ** 2 * np.exp(-0.5 * (x_s[i] - mu_s_t_1).T * np.linalg.inv(Lambda[a][a]) * (x_s[i] - mu_s_t_1))  # x_s is x_schlange in paper,training input
+            k[1][a] = k_dim
+
+
+
+        # calculate   Sigma_delta
+        # init
+        z = np.zeros(n, n)
+        R = np.zeros(D, D)
+        Sigma_delta = []
+
+        for i in range(1, n + 1):
+            for j in range(1, n + 1):
+                for a in range(1, D + 1):
+                    for b in range(1, D + 1):
+                        # under (22)
+                        z[i][j] = np.linalg.inv(Lambda[a][a]) * v[i] + np.linalg.inv(Lambda[b][b]) * v[j]
+                        R[a][b] = Sigma[t - 1] * (np.linalg.inv(Lambda[a][a]) + np.linalg.inv(Lambda[b][b])) + np.eye(D)
+                        if a != b:
+                            # (18)=(20)=beta[a].T*(22)*beta[b]
+                            Sigma_delta[a][b] = beta[:, a].T * (((k[1][a] * k[1][b]) / np.sqrt(abs(R[a][b]))) * np.exp(0.5 * z[i][j].T * np.linalg.inv(R[a][b] * Sigma[t - 1] * z[i][j]))) * beta[:, b] - mu_delta[a] * mu_delta[b]
+                        else:
+                            # (17)=(23)+(20)
+                            Sigma_delta[a][a] = alpha[a] ** 2 -np.trace(np.linalg.inv(K[1][a] + np.eye(D))) * (((k[1][a] * k[1][a]) / np.sqrt(np.abs(R[a][a]))) * np.exp(0.5 * z[i][j].T * np.linalg.inv(R[a][a] * Sigma_t_1 * z[i][j]))) + beta[:,a].T * (((k[1][a] * k[1][a]) / np.sqrt(np.abs(R[a][a]))) * np.exp(0.5 * z[i][j].T * np.linalg.inv(R[a][a] * Sigma_t_1 * z[i][j]))) * beta[:, a] - mu_delta[a] * mu_delta[a]
+
+        return mu_delta, Sigma_delta
