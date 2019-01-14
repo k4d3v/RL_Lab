@@ -32,13 +32,13 @@ class PILCO:
 
         # Initial J random rollouts
         data = []
-        old_Theta = Policy(env)
+        old_policy, policy = Policy(env), Policy(env)
         for j in range(self.J):
             # Sample controller params
-            Theta = Policy(env)
+            policy = Policy(env)
 
             # Apply random control signals and record data
-            data.append(Theta.rollout())
+            data.append(policy.rollout())
 
         # Learn hyperparams for dynamics GP
         dyn_model = DynModel(s_dim, data)
@@ -58,10 +58,10 @@ class PILCO:
             while True:
                 print("Policy search iteration ", i)
 
-                mu_delta, Sigma_delta = self.approximate_p_delta_t() # TODO
+                mu_delta, Sigma_delta = self.approximate_p_delta_t(dyn_model) # TODO
 
                 # Approx. inference for policy evaluation (Sec. 2.2)
-                # Get J^pi(Theta) (10-12), (24)
+                # Get J^pi(policy) (10-12), (24)
                 J = self.get_J(mu_delta, Sigma_delta, dyn_model)  # TODO
 
                 # Policy improvement based on the gradient (Sec. 2.3)
@@ -70,47 +70,55 @@ class PILCO:
                 dJ = self.get_dJ(J)
 
                 # Learn policy
-                # Update Theta (CG or L-BFGS)
-                Theta.update(dJ)  # TODO
+                # Update policy (CG or L-BFGS)
+                policy.update(J, dJ)  # TODO
 
                 # Convergence check
                 # TODO
-                if Theta.check_convergence(old_Theta):
+                if policy.check_convergence(old_policy):
                     break
 
-                old_Theta = Theta
+                old_policy = policy
                 i += 1
 
             # Apply new optimal policy to system (One episode) and record
-            new_data = Theta.rollout()
+            new_data = policy.rollout()
             data.append(new_data)
 
             # Convergence check
             # TODO
 
-        return Theta
+        return policy
 
     def get_J(self, mu_delta, Sigma_delta, dyn_model):
         """
-        Constructs a gaussian approximation for every p(x_t) based on subsequent one-step predictions and computes the expected values
+        Returns a function which constructs a gaussian approximation for every p(x_t) based on subsequent one-step predictions and computes the expected values
         :param mu_delta: Mean of approximated p_delta_t
         :param Sigma_delta: Std of approximated p_delta_t
         :param dyn_model: Trained dynamics model
-        :return: J (Expected values)
+        :return: Function for estimating J (Expected values)
         """
-        # Construct gaussian approximation of p(x_t)
-        for t in range(dyn_model.big_t):
-            mu_t = dyn_model.mu+mu_delta
-            Sigma_t = 0
-            acov = 0
+        def J():
+            # Construct gaussian approximation of p(x_t)
+            for t in range(len(dyn_model.x)):
+                mu_t = dyn_model.mu+mu_delta
+                Sigma_t = 0
+                acov = 0
 
-        # Compute the expected values
-        E_x_t = 0
+            # Compute the expected values
+            E_x_t = 0
 
-        return E_x_t
+            return E_x_t
+        return J
 
     def get_dJ(self, J):
-        return 0
+        """
+        Returns a function which can estimate the gradient of the expected return
+        :return: function dJ
+        """
+        def dJ():
+            return 0
+        return dJ
 
     def approximate_p_delta_t(self, dyn_model):
         # calculate   mu_delta

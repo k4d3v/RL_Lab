@@ -25,7 +25,7 @@ class DynModel:
         self.alpha = 1
         self.beta = beta
 
-        self.mean = []
+        self.mean = [] # TODO: Compute (?)
         self.cov_f = self.squared_expo_kernel
         self.setup_sigma()
 

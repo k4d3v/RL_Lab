@@ -1,6 +1,7 @@
 import numpy as np
 from timeit import default_timer as timer
 import torch
+from scipy.optimize import minimize
 
 
 class Policy():
@@ -19,13 +20,13 @@ class Policy():
         self.n_basis = n_basis
         self.dim_theta = dim_theta # TODO: Why R^305!? (See paper)
         # Init. random control param.s
+        # TODO: Torch gradientable
         W = np.random.normal(size=(self.n_basis))
-        Lamb = np.zeros((self.s_dim, self.s_dim))
-        np.fill_diagonal(Lamb, 1)
+        Lamb = np.eye(self.s_dim)
         Mu = np.random.normal(size=(self.n_basis, self.s_dim))
         self.Theta = {"W": W, "Lamb": Lamb, "Mu": Mu}
 
-    def get_policy(self, x):
+    def get_action(self, x):
         """
         Returns a single control based on observation x
         :param x: Observation
@@ -65,7 +66,7 @@ class Policy():
             #self.env.render()
             point = []
 
-            action = self.get_policy(np.asarray(observation))
+            action = self.get_action(np.asarray(observation))
 
             point.append(observation)  # Save state to tuple
             point.append(action)  # Save action to tuple
@@ -79,8 +80,21 @@ class Policy():
         print("Episode reward: ", episode_reward)
         return traj
 
-    def update(self, dJ):
-        pass
+    def update(self, J, dJ):
+        """
+        Optimizes the policy param.s w.r.t. the expected return
+        :param J: Function for computing the expected return
+        :param dJ: Function for computing the gradient of the expected return
+        """
+        # TODO: Transform policy params into right data structure
+        init = self.Theta
+        new_Theta = minimize(J, init, method='L-BFGS-B', jac=dJ, options={'disp': True}).x
+        self.Theta = new_Theta
 
     def check_convergence(self, old_Theta):
+        """
+        Checks if there is a significant difference between the old and new policy param.s
+        :param old_Theta: Old params
+        :return: True if convergence
+        """
         return False
