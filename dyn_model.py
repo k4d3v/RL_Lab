@@ -66,7 +66,7 @@ class DynModel:
         """
         Sets up the covariance matrix
         """
-        self.sigma = self.calculate_sigma(self.x, self.cov_f)
+        self.sigma = self.calculate_sigma(self.x, self.cov_f, self.lambs)
 
     def predict(self, x):
         """
