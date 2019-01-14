@@ -49,12 +49,11 @@ class PILCO:
             print("Round ", n)
 
             # Learn GP dynamics model using all data (Sec. 2.1)
-            dyn_model = DynModel(s_dim, data, lambs) # TODO: Impl. dyn. model
+            dyn_model = DynModel(s_dim, data, lambs)
 
-            """ For testing the dyn model accuracy
+            # For testing the model accuracy (TODO: Maybe print avg. accuracy on test data)
             s = np.concatenate((data[0][0][0], data[0][0][1]))
             m, sig = dyn_model.predict(s)
-            """
 
             i = 0
             while True:

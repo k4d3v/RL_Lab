@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+from scipy.optimize import minimize
 from torch.autograd import Variable, grad
 from torch.distributions import Normal
 
@@ -21,13 +22,14 @@ class DynModel:
         self.x, self.y = self.prepare_data(data)
         self.N = len(self.x)
         self.lambs = lambs
+        self.alpha = 1
         self.beta = beta
 
         self.mean = []
         self.cov_f = self.squared_expo_kernel
         self.setup_sigma()
 
-    def squared_expo_kernel(self, x, y):
+    def squared_expo_kernel(self, x, y, lambs=None):
         """
         An exponential squared kernel function
         :param x: Training input 1
@@ -35,18 +37,15 @@ class DynModel:
         :return: The kernel function
         """
         # TODO: Learn length-scales delta_d for each dimension
-        if self.lambs is None:
+        if lambs is None:
             lambs = np.array([self.s_dim+1]*(self.s_dim+1))
-            return np.exp(-1 / 2.0 * np.sum(np.power((x - y) / lambs, 2)))
-        else:
-            return np.exp(-1 / 2.0 * np.sum(np.power((x - y) / self.lambs, 2)))
+        return self.alpha*np.exp(-1 / 2.0 * np.sum(np.power((x - y) / lambs, 2)))
 
-    def calculate_sigma(self, x, cov_f, beta=0.0):
+    def calculate_sigma(self, x, cov_f, lambs=None):
         """
         Computes the covariance matrix
         :param x: Training inputs
         :param cov_f: GP kernel function
-        :param beta: Hyperparam. for the covariance matrix
         :return: Covariance sigma
         """
         # Length of training data
@@ -55,19 +54,19 @@ class DynModel:
         for i in range(N):
             for j in range(i + 1, N):
                 # Compute kernels
-                cov = cov_f(x[i], x[j])
+                cov = cov_f(x[i], x[j], lambs)
                 sigma[i][j] = cov
                 sigma[j][i] = cov
 
         # Add beta hyperparam.
-        sigma = sigma + beta * np.eye(N)
+        sigma = sigma + self.beta * np.eye(N)
         return sigma
 
     def setup_sigma(self):
         """
         Sets up the covariance matrix
         """
-        self.sigma = self.calculate_sigma(self.x, self.cov_f, self.beta)
+        self.sigma = self.calculate_sigma(self.x, self.cov_f)
 
     def predict(self, x):
         """
@@ -109,17 +108,38 @@ class DynModel:
         :return: optimal length-scales
         """
         lambs = [self.s_dim+1]*(self.s_dim+1)
+
+        sig_n = 0.1**2
+        y = np.mat(self.y)
+        n = self.sigma.shape[0]
+
+        # Function for computing the marginal likelihood
+        def mll(lambs):
+            # Compute Kernel matrix and inverse based on hyperparam lambda
+            sigma = self.calculate_sigma(self.x, self.cov_f, lambs)
+            K = np.mat(sigma) + sig_n * np.eye(sigma.shape[0])
+            KI = K.I
+
+            log_prob = []
+            # Compute mll for each dimension
+            for d in range(self.s_dim):
+                data_fit = (-1/2)*y[:,d].T*KI*y[:,d]
+                det = (1/2)*np.log(np.linalg.det(K))
+                norm = -(n/2)*np.log(2*np.pi)
+                log_prob.append(data_fit-det-norm)
+            return np.mean(log_prob)
+
         """
-        # Compute derivatives of marginal ll
-        sigma = np.mat(self.sigma.detach().numpy())
-        K_inv = sigma.I
-        alpha = K_inv*np.mat(self.y)
-        nabla_logll = np.zeros(sigma.shape)
-        for r in range(sigma.shape[0]):
-            for c in range(sigma.shape[1]):
-                gradi = grad(self.sigma[r][c], lambs, allow_unused=True)
-                nabla_logll[r][c] = (1/2)*np.trace((alpha*alpha.T-K_inv)*gradi)
+        # Function for computing the derivatives of marginal ll
+        def dmll(y):
+            # TODO
+            def gradi(K, lambs):
+                return 0
+            alpha = KI*y
+            return (1/2)*np.trace((alpha*alpha.T-KI)*gradi(K, lambs))
+        """
 
         # Optimize marginal ll
-        """
-        return lambs
+        init = [1]*(self.s_dim+1)
+        optimal_lambs = minimize(mll, init, method='BFGS', options = {'disp': True}).x
+        return optimal_lambs
