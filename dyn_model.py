@@ -35,8 +35,8 @@ class DynModel:
         :param x: Training input 1
         :param y: Training input 2
         :return: The kernel function
+        :param lambs: Custom length-scales
         """
-        # TODO: Learn length-scales delta_d for each dimension
         if lambs is None:
             lambs = np.array([self.s_dim+1]*(self.s_dim+1))
         return self.alpha*np.exp(-1 / 2.0 * np.sum(np.power((x - y) / lambs, 2)))
@@ -75,11 +75,11 @@ class DynModel:
         :return: Mu and Sigma of prediction
         """
         # Kernel of input
-        k_xx = 1 + self.beta * self.cov_f(x, x)
+        k_xx = 1 + self.beta * self.cov_f(x, x, self.lambs)
         # Kernel of input and training x
         k_xX = np.zeros((self.N, 1))
         for i in range(self.N):
-            k_xX[i] = self.cov_f(self.x[i], x)
+            k_xX[i] = self.cov_f(self.x[i], x, self.lambs)
 
         # See slide 43 LR ML2 lecture
         sigmaI = np.mat(self.sigma).I
@@ -129,22 +129,45 @@ class DynModel:
                 log_prob.append(data_fit-det-norm)
             return np.mean(log_prob)
 
+        """
         # Function for computing the derivatives of mll
         def dmll(lambs):
             # Compute Kernel matrix and inverse based on hyperparam lambda
             sigma = self.calculate_sigma(self.x, self.cov_f, lambs)
-            K = np.mat(sigma) + sig_n * np.eye(sigma.shape[0])
-            KI = K.I
+            K = sigma + sig_n * np.eye(sigma.shape[0])
+            KI = np.mat(K).I
 
             # Gradient of the matrix w.r.t. lambdas
+            # TODO: Return matrix for current lambda!
             def gradimat(K, lambs):
-
-                return 0
+                nablas = []
+                for l in range(len(lambs)):
+                    nabla_K = np.zeros(K.shape)
+                    N = K.shape[0]
+                    for i in range(N):
+                        for j in range(i + 1, N):
+                            dk = K[i][j]*(((self.x[i][d] - self.x[j][d])**2)/lambs[d]**3)
+                            nabla_K[i][j] = dk
+                            nabla_K[j][i] = dk
+                        nablas.append(nabla_K)
+                return nablas
             alpha = KI*y
             return (1/2)*np.trace((alpha*alpha.T-KI)*gradimat(K, lambs))
-
+            """
 
         # Optimize marginal ll
         init = [1]*(self.s_dim+1)
-        optimal_lambs = minimize(mll, init, method='BFGS', options = {'disp': True}).x
+        bounds = [(1e-9, None)]*(self.s_dim+1)
+        optimal_lambs = minimize(mll, init, method='L-BFGS-B', bounds=bounds, options = {'disp': True}).x
         return optimal_lambs
+
+    def training_error(self):
+        """
+        Estimates the average error on the training data
+        :return: Average error
+        """
+        err = []
+        for din, dout in zip(self.x, self.y):
+            m, sig = self.predict(din)
+            err.append(np.abs(dout - m))
+        return np.sum(err)/len(self.x)

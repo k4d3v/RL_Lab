@@ -42,6 +42,8 @@ class PILCO:
 
         # Learn hyperparams for dynamics GP
         dyn_model = DynModel(s_dim, data)
+        print("Average GP error: ", dyn_model.training_error())
+
         lambs = dyn_model.estimate_hyperparams()
 
         # Controlled learning (N iterations)
@@ -50,10 +52,7 @@ class PILCO:
 
             # Learn GP dynamics model using all data (Sec. 2.1)
             dyn_model = DynModel(s_dim, data, lambs)
-
-            # For testing the model accuracy (TODO: Maybe print avg. accuracy on test data)
-            s = np.concatenate((data[0][0][0], data[0][0][1]))
-            m, sig = dyn_model.predict(s)
+            print("Average GP error: ", dyn_model.training_error())
 
             i = 0
             while True:
