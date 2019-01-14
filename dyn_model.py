@@ -129,15 +129,20 @@ class DynModel:
                 log_prob.append(data_fit-det-norm)
             return np.mean(log_prob)
 
-        """
-        # Function for computing the derivatives of marginal ll
-        def dmll(y):
-            # TODO
-            def gradi(K, lambs):
+        # Function for computing the derivatives of mll
+        def dmll(lambs):
+            # Compute Kernel matrix and inverse based on hyperparam lambda
+            sigma = self.calculate_sigma(self.x, self.cov_f, lambs)
+            K = np.mat(sigma) + sig_n * np.eye(sigma.shape[0])
+            KI = K.I
+
+            # Gradient of the matrix w.r.t. lambdas
+            def gradimat(K, lambs):
+
                 return 0
             alpha = KI*y
-            return (1/2)*np.trace((alpha*alpha.T-KI)*gradi(K, lambs))
-        """
+            return (1/2)*np.trace((alpha*alpha.T-KI)*gradimat(K, lambs))
+
 
         # Optimize marginal ll
         init = [1]*(self.s_dim+1)
