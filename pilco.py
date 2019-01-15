@@ -3,6 +3,7 @@ http://www.icml-2011.org/papers/323_icmlpaper.pdf"""
 import gym
 import quanser_robots
 import numpy as np
+from torch.autograd import grad
 
 from policy import Policy
 from dyn_model import DynModel
@@ -72,7 +73,7 @@ class PILCO:
                 # Policy improvement based on the gradient (Sec. 2.3)
                 # Get the gradient of J (26-30)
                 # TODO: Torch gradient
-                dJ = self.get_dJ(J)
+                dJ = self.get_dJ(policy.Theta)
 
                 # Learn policy
                 # Update policy (CG or L-BFGS)
@@ -146,13 +147,22 @@ class PILCO:
 
         return J
 
-    def get_dJ(self, J):
+    def get_dJ(self, Theta):
         """
         Returns a function which can estimate the gradient of the expected return
+        :param Theta: Policy param.s
         :return: function dJ
         """
-        def dJ():
-            return 0
+        def dJ(Ext):
+            """
+            :param Ext: Expected returns
+            :return: Gradient of expected returns w.r.t. policy param.s
+            """
+            # TODO: Torch grads
+            # TODO: Maybe other deriv.s are also needed despite torch?
+            # (26) Derivative of expected returns w.r.t. policy params
+            dExt = grad(Ext, Theta)
+            return dExt
         return dJ
 
     def approximate_p_delta_t(self, dyn_model):
