@@ -103,17 +103,47 @@ class PILCO:
         :param dyn_model: Trained dynamics model
         :return: Function for estimating J (Expected values)
         """
-        def J():
-            # Construct gaussian approximation of p(x_t)
-            for t in range(len(dyn_model.x)):
-                mu_t = dyn_model.mu+mu_delta
-                Sigma_t = 0
-                acov = 0
+        def E_x_t(x):
 
-            # Compute the expected values
-            E_x_t = 0
+            N = dyn_model.N   # number of inputs
+            x_t = ?           # input at t
+            x_t_1 = ?         # input at t-1
+
+            mu_t_1, sigma_t_1 = dyn_model.predict(dyn_model.x)    ?
+
+            x_target = ?      # target state
+            sigma_c = ?       # control the width of cost function, top right of page 4
+
+            # under 2.1
+            delta_t = x_t - x_t_1
+
+            # (10)
+            mu_t = mu_t_1 + mu_delta
+            # (11)
+            sigma_t = sigma_t_1 + Sigma_delta + np.cov(x_t_1, delta_t) + np.cov(delta_t, x_t_1)
+
+            """ https://pdfs.semanticscholar.org/c9f2/1b84149991f4d547b3f0f625f710750ad8d9.pdf 
+                Page 54(66 of 217)  """
+            I = np.eye(N)
+            C = ?  # np.zeros(N, N)
+            T_inv = (1 / sigma_c ** 2) * C.T * C
+            # KIT: (3.46)
+            S = T_inv * np.linalg.inv(I + sigma_t * T_inv)
+
+
+            # KIT: (3.45)
+            E_x_t = 1 - (1 / (np.linalg.det(I + sigma_t * T_inv)) ** 2) * np.exp(-0.5 * (mu_t - x_target).T * S * (mu_t - x_target))
 
             return E_x_t
+
+        summe = 0
+        N = dyn_model.N
+        # (2)
+        for t in range(1, N+1):
+            x = dyn_model.x
+            summe = summe + E_x_t(x)
+        J = summe
+
         return J
 
     def get_dJ(self, J):
@@ -128,17 +158,17 @@ class PILCO:
     def approximate_p_delta_t(self, dyn_model):
         # calculate   mu_delta
         # init
-        n = len(dyn_model.x)     # input
+        n = dyn_model.N     # input
         D = 5      # s_dim
         x_s = dyn_model.x
-        Sigma = dyn_model.sigma
         mu_s_t_1, Sigma_t_1= dyn_model.predict(dyn_model.x)    # mu_schlange(t-1) is the mean of the "test" input distribution p(x[t-1],u[t-1])
         q = np.zeros(D, n)
         y = np.zeros(n, D)   # output
         v = np.zeros(1, n)
-        length_scale = []    ### nur fuer test, noch nicht bestimmt
+        length_scale = dyn_model.lambs
         Lambda = np.zeros(D, D)
-        alpha = np.ones(1, D)    ### nur fuer test, noch nicht bestimmt
+        # alpha = np.ones(1, D)    ### nur fuer test, noch nicht bestimmt
+        alpha = dyn_model.alpha    # alpha is (1, D) matrix ?
 
         # calculate Lambda, under (6)
         for i in range(1, D + 1):
@@ -151,8 +181,8 @@ class PILCO:
                 v[i] = x_s[i] - mu_s_t_1  # x_schlange and mu_schlange in paper, x_schlange is training input,
                                              # mu_schlange is the mean of the "test" input distribution p(x[t-1],u[t-1])
                 # (15)
-                q[a][i] = alpha[a] ** 2 / np.sqrt(np.abs(Sigma[t - 1] * np.linalg.inv(Lambda[a]) + np.eye(D))) * np.exp(
-                    (-1 / 2) * v[i].T * np.linalg.inv(Sigma[t - 1] + Lambda[a]) * v[i])   # Sigma[t-1] is variances at time t-1 from GP
+                q[a][i] = alpha[a] ** 2 / np.sqrt(np.abs(Sigma_t_1 * np.linalg.inv(Lambda[a][a]) + np.eye(D))) * np.exp(
+                    (-1 / 2) * v[i].T * np.linalg.inv(Sigma_t_1 + Lambda[a][a]) * v[i])   # Sigma[t-1] is variances at time t-1 from GP
 
         # calculate   K
         K = np.zeros(1, D) # K for all input und dimension, each term is also a matrix for all input and output
@@ -199,10 +229,10 @@ class PILCO:
                     for b in range(1, D + 1):
                         # under (22)
                         z[i][j] = np.linalg.inv(Lambda[a][a]) * v[i] + np.linalg.inv(Lambda[b][b]) * v[j]
-                        R[a][b] = Sigma[t - 1] * (np.linalg.inv(Lambda[a][a]) + np.linalg.inv(Lambda[b][b])) + np.eye(D)
+                        R[a][b] = Sigma_t_1 * (np.linalg.inv(Lambda[a][a]) + np.linalg.inv(Lambda[b][b])) + np.eye(D)
                         if a != b:
                             # (18)=(20)=beta[a].T*(22)*beta[b]
-                            Sigma_delta[a][b] = beta[:, a].T * (((k[1][a] * k[1][b]) / np.sqrt(abs(R[a][b]))) * np.exp(0.5 * z[i][j].T * np.linalg.inv(R[a][b] * Sigma[t - 1] * z[i][j]))) * beta[:, b] - mu_delta[a] * mu_delta[b]
+                            Sigma_delta[a][b] = beta[:, a].T * (((k[1][a] * k[1][b]) / np.sqrt(abs(R[a][b]))) * np.exp(0.5 * z[i][j].T * np.linalg.inv(R[a][b] * Sigma_t_1 * z[i][j]))) * beta[:, b] - mu_delta[a] * mu_delta[b]
                         else:
                             # (17)=(23)+(20)
                             Sigma_delta[a][a] = alpha[a] ** 2 -np.trace(np.linalg.inv(K[1][a] + np.eye(D))) * (((k[1][a] * k[1][a]) / np.sqrt(np.abs(R[a][a]))) * np.exp(0.5 * z[i][j].T * np.linalg.inv(R[a][a] * Sigma_t_1 * z[i][j]))) + beta[:,a].T * (((k[1][a] * k[1][a]) / np.sqrt(np.abs(R[a][a]))) * np.exp(0.5 * z[i][j].T * np.linalg.inv(R[a][a] * Sigma_t_1 * z[i][j]))) * beta[:, a] - mu_delta[a] * mu_delta[a]
