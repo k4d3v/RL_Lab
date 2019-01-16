@@ -204,16 +204,16 @@ class PILCO:
                     (-1 / 2) * np.dot(np.dot(vi.T , np.linalg.inv(Sigma_t_1 + Lambda_a)) , vi))   # Sigma[t-1] is variances at time t-1 from GP
                 q[i][a] = fract*expo
 
-        # calculate   K
-        K = np.zeros(1, D) # K for all input und dimension, each term is also a matrix for all input and output
-        K_dim = np.zeros(n, n) # K_dim tmp to save the result of every dimension
-        for a in range(1, D+1):
-            for i in range(1, n+1):
-                for j in range(1, n+1):
+        # calculate K
+        Lambda = np.diag(length_scale)
+        K = []  # K for all input und dimension, each term is also a matrix for all input and output
+        for a in range(D):
+            K_dim = np.zeros((n, n))  # K_dim tmp to save the result of every dimension
+            for i in range(n):
+                for j in range(n):
                     # (6)
-                    K_dim[i][j] = alpha**2 *np.exp(-0.5*(x_s[i]-x_s[j]).T *np.linalg.inv(Lambda)*(x_s[i]-x_s[j])) # x_s is x_schlange in paper,training input
-            K[1][a] = K_dim
-
+                    K_dim[i][j] = alpha[a] ** 2 * np.exp(-0.5 * ((x_s[i][a] - x_s[j][a])/length_scale[a])**2 )  # x_s is x_schlange in paper,training input
+            K.append(K_dim)
 
         # calculate   beta, under (14)
         beta = np.zeros(n, D)
