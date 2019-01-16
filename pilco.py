@@ -107,13 +107,13 @@ class PILCO:
         def E_x_t(x):
 
             N = dyn_model.N   # number of inputs
-            x_t = ?           # input at t
-            x_t_1 = ?         # input at t-1
+            x_t = 0           # input at t
+            x_t_1 = 0         # input at t-1
 
-            mu_t_1, sigma_t_1 = dyn_model.predict(dyn_model.x)    ?
+            mu_t_1, sigma_t_1 = dyn_model.predict(dyn_model.x)    #?
 
-            x_target = ?      # target state
-            sigma_c = ?       # control the width of cost function, top right of page 4
+            x_target = 0      # target state
+            sigma_c = 0       # control the width of cost function, top right of page 4
 
             # under 2.1
             delta_t = x_t - x_t_1
@@ -126,7 +126,7 @@ class PILCO:
             """ https://pdfs.semanticscholar.org/c9f2/1b84149991f4d547b3f0f625f710750ad8d9.pdf 
                 Page 54(66 of 217)  """
             I = np.eye(N)
-            C = ?  # np.zeros(N, N)
+            C = 0  # np.zeros(N, N)
             T_inv = (1 / sigma_c ** 2) * C.T * C
             # KIT: (3.46)
             S = T_inv * np.linalg.inv(I + sigma_t * T_inv)
@@ -168,31 +168,41 @@ class PILCO:
     def approximate_p_delta_t(self, dyn_model):
         # calculate   mu_delta
         # init
-        n = dyn_model.N     # input
-        D = 5      # s_dim
-        x_s = dyn_model.x
-        mu_s_t_1, Sigma_t_1= dyn_model.predict(dyn_model.x)    # mu_schlange(t-1) is the mean of the "test" input distribution p(x[t-1],u[t-1])
-        q = np.zeros(D, n)
-        y = np.zeros(n, D)   # output
-        v = np.zeros(1, n)
+        n = dyn_model.N     # input (number of training data points)
+        D = dyn_model.s_dim      # s_dim
+        x_s = [ax[:-1] for ax in dyn_model.x]
+        # mu_schlange(t-1) is the mean of the "test" input distribution p(x[t-1],u[t-1])
+        pred_results = [] # mu_t and sigma_t for each training point
+
+        # Predict mu and sigma for all training inputs
+        for ax in dyn_model.x:
+            mu_s_t_1, Sigma_t_1 = dyn_model.predict(ax)
+            pred_results.append((mu_s_t_1, Sigma_t_1))
+
+        q = np.zeros((n, D))
+        y = np.zeros((n, D))   # output
+        v = np.zeros((n, D))
         length_scale = dyn_model.lambs
-        Lambda = np.zeros(D, D)
         # alpha = np.ones(1, D)    ### nur fuer test, noch nicht bestimmt
-        alpha = dyn_model.alpha    # alpha is (1, D) matrix ?
+        # TODO: Maybe estimate alphas for each dim. in dyn_model
+        alpha = np.array([dyn_model.alpha]*D)    # alpha is (1, D) matrix ?
 
-        # calculate Lambda, under (6)
-        for i in range(1, D + 1):
-            Lambda[i][i]=length_scale[i]**2
+        # calculate q_ai
+        for i in range(1, n):
+            # (16)
+            v[i-1] = x_s[i] - pred_results[i-1][0]  # x_schlange and mu_schlange in paper, x_schlange is training input,
+                                         # mu_schlange is the mean of the "test" input distribution p(x[t-1],u[t-1])
+            # TODO: Maybe return diag. matrix Sigma in dyn_model
+            Sigma_t_1 = np.diag(np.array(list(pred_results[i - 1][1])*D))
 
-        # calculate   q_ai
-        for a in range(1, D + 1):
-            for i in range(1, n + 1):
-                # (16)
-                v[i] = x_s[i] - mu_s_t_1  # x_schlange and mu_schlange in paper, x_schlange is training input,
-                                             # mu_schlange is the mean of the "test" input distribution p(x[t-1],u[t-1])
+            for a in range(D):
                 # (15)
-                q[a][i] = alpha[a] ** 2 / np.sqrt(np.abs(Sigma_t_1 * np.linalg.inv(Lambda[a][a]) + np.eye(D))) * np.exp(
-                    (-1 / 2) * v[i].T * np.linalg.inv(Sigma_t_1 + Lambda[a][a]) * v[i])   # Sigma[t-1] is variances at time t-1 from GP
+                Lambda_a = np.diag(np.array([length_scale[a]]*D))
+                fract = alpha[a] ** 2 / np.sqrt(np.linalg.det(Sigma_t_1 * np.linalg.inv(Lambda_a) + np.eye(D)))
+                vi = v[i-1].reshape(-1,1)
+                expo = np.exp(
+                    (-1 / 2) * np.dot(np.dot(vi.T , np.linalg.inv(Sigma_t_1 + Lambda_a)) , vi))   # Sigma[t-1] is variances at time t-1 from GP
+                q[i][a] = fract*expo
 
         # calculate   K
         K = np.zeros(1, D) # K for all input und dimension, each term is also a matrix for all input and output

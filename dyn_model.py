@@ -86,7 +86,7 @@ class DynModel:
         m_expt = (k_xX.T * sigmaI) * np.mat(self.y)
         # sigma_expt = k_xx - (k_xX.T * np.mat(self.sigma).I) * k_xX
         sigma_expt = k_xx + self.beta - (k_xX.T * sigmaI) * k_xX
-        return m_expt, sigma_expt
+        return np.array(m_expt).reshape(-1,), np.array(sigma_expt).reshape(-1,)
 
     def prepare_data(self, data):
         """
