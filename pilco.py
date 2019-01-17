@@ -192,7 +192,7 @@ class PILCO:
         # calculate q_ai
         for i in range(1, n):
             # (16)
-            v[i-1] = x_s[i] - pred_results[i-1][0]  # x_schlange and mu_schlange in paper, x_schlange is training input,
+            v[i] = x_s[i] - pred_results[i-1][0]  # x_schlange and mu_schlange in paper, x_schlange is training input,
                                          # mu_schlange is the mean of the "test" input distribution p(x[t-1],u[t-1])
             # TODO: Maybe return diag. matrix Sigma in dyn_model
             Sigma_t_1 = np.diag(np.array(list(pred_results[i - 1][1])*D))
@@ -201,7 +201,7 @@ class PILCO:
                 # (15)
                 Lambda_a = np.diag(np.array([length_scale[a]]*D))
                 fract = (alpha[a] ** 2) / np.sqrt(np.linalg.det(Sigma_t_1 * np.linalg.inv(Lambda_a) + np.eye(D)))
-                vi = v[i-1].reshape(-1,1)
+                vi = v[i].reshape(-1,1)
                 expo = np.exp(
                     (-1 / 2) * np.dot(np.dot(vi.T , np.linalg.inv(Sigma_t_1 + Lambda_a)) , vi))   # Sigma[t-1] is variances at time t-1 from GP
                 q[i][a] = fract*expo
@@ -212,13 +212,13 @@ class PILCO:
         K = []  # K for all input und dimension, each term is also a matrix for all input and output
         for a in range(D):
             K_dim = np.zeros((n, n))  # K_dim tmp to save the result of every dimension
-            #Lambda_a = np.diag(np.array([length_scale[a]] * D))
+            Lambda_a = np.diag(np.array([length_scale[a]] * D))
             for i in range(n):
                 for j in range(n):
                     # (6)
-                    K_dim[i][j] = (alpha[a] ** 2) * np.exp(-0.5 * (((x_s[i][a] - x_s[j][a]))**2)/length_scale[a])  # x_s is x_schlange in paper,training input
-                    #curr_x = (x_s[i] - x_s[j]).reshape(-1,1)
-                    #K_dim[i][j] = (alpha[a] ** 2) * np.exp(-0.5 * (np.dot(np.dot(curr_x.T, np.linalg.inv(Lambda_a)), curr_x)))
+                    #K_dim[i][j] = (alpha[a] ** 2) * np.exp(-0.5 * (((x_s[i][a] - x_s[j][a]))**2)/length_scale[a])  # x_s is x_schlange in paper,training input
+                    curr_x = (x_s[i] - x_s[j]).reshape(-1,1)
+                    K_dim[i][j] = (alpha[a] ** 2) * np.exp(-0.5 * (np.dot(np.dot(curr_x.T, np.linalg.inv(Lambda_a)), curr_x)))
             K.append(K_dim)
 
         # calculate   beta, under (14)
