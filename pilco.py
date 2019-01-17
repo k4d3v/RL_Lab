@@ -32,6 +32,7 @@ class PILCO:
         s_dim = env.observation_space.shape[0]
 
         while True:
+
             try:
                 # Initial J random rollouts
                 data = []
@@ -57,6 +58,7 @@ class PILCO:
             print("Round ", n)
 
             # Learn GP dynamics model using all data (Sec. 2.1)
+            #lambs = [s_dim+1]*(s_dim+1)
             dyn_model = DynModel(s_dim, data, lambs)
             print("Average GP error: ", dyn_model.training_error())
 
@@ -177,10 +179,10 @@ class PILCO:
         # Predict mu and sigma for all training inputs
         for ax in dyn_model.x:
             mu_s_t_1, Sigma_t_1 = dyn_model.predict(ax)
-            pred_results.append((mu_s_t_1, Sigma_t_1))
+            pred_results.append((ax[:-1]+mu_s_t_1, Sigma_t_1))
 
         q = np.zeros((n, D))
-        y = np.zeros((n, D))   # output
+        y = np.mat(dyn_model.y)   # output
         v = np.zeros((n, D))
         length_scale = dyn_model.lambs
         # alpha = np.ones(1, D)    ### nur fuer test, noch nicht bestimmt
@@ -198,32 +200,36 @@ class PILCO:
             for a in range(D):
                 # (15)
                 Lambda_a = np.diag(np.array([length_scale[a]]*D))
-                fract = alpha[a] ** 2 / np.sqrt(np.linalg.det(Sigma_t_1 * np.linalg.inv(Lambda_a) + np.eye(D)))
+                fract = (alpha[a] ** 2) / np.sqrt(np.linalg.det(Sigma_t_1 * np.linalg.inv(Lambda_a) + np.eye(D)))
                 vi = v[i-1].reshape(-1,1)
                 expo = np.exp(
                     (-1 / 2) * np.dot(np.dot(vi.T , np.linalg.inv(Sigma_t_1 + Lambda_a)) , vi))   # Sigma[t-1] is variances at time t-1 from GP
                 q[i][a] = fract*expo
 
         # calculate K
-        Lambda = np.diag(length_scale)
+        # TODO: Maybe fix bugs in K computation
+        #Lambda = np.diag(length_scale)
         K = []  # K for all input und dimension, each term is also a matrix for all input and output
         for a in range(D):
             K_dim = np.zeros((n, n))  # K_dim tmp to save the result of every dimension
+            #Lambda_a = np.diag(np.array([length_scale[a]] * D))
             for i in range(n):
                 for j in range(n):
                     # (6)
-                    K_dim[i][j] = alpha[a] ** 2 * np.exp(-0.5 * ((x_s[i][a] - x_s[j][a])/length_scale[a])**2 )  # x_s is x_schlange in paper,training input
+                    K_dim[i][j] = (alpha[a] ** 2) * np.exp(-0.5 * (((x_s[i][a] - x_s[j][a]))**2)/length_scale[a])  # x_s is x_schlange in paper,training input
+                    #curr_x = (x_s[i] - x_s[j]).reshape(-1,1)
+                    #K_dim[i][j] = (alpha[a] ** 2) * np.exp(-0.5 * (np.dot(np.dot(curr_x.T, np.linalg.inv(Lambda_a)), curr_x)))
             K.append(K_dim)
 
         # calculate   beta, under (14)
-        beta = np.zeros(n, D)
-        for a in range(1, D + 1):
-            beta[:, a] = np.linalg.inv(K[1][a]) * y[:, a]
+        beta = np.zeros((n, D))
+        for a in range(D):
+            beta[:, a] = (np.linalg.inv(K[a]) * y[:, a]).reshape(-1,)
 
         # calculate   mu_delta (14)
-        mu_delta = []
-        for a in range(1, D + 1):
-            mu_delta[a] = beta[:, a].T * q[a, :]
+        mu_delta = np.zeros(D)
+        for a in range(D):
+            mu_delta[a] = np.dot(beta[:, a].reshape(-1, 1).T, q[:, a].reshape(-1,1))
 
         # calculate   k
         k = np.zeros(1, D)  # k for all input und dimension, each term is also a matrix for all input and output

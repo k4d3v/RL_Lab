@@ -35,11 +35,11 @@ class DynModel:
         :param x: Training input 1
         :param y: Training input 2
         :return: The kernel function
-        :param lambs: Custom length-scales
+        :param lambs: Custom length-scales (l^2)
         """
         if lambs is None:
             lambs = np.array([self.s_dim+1]*(self.s_dim+1))
-        return self.alpha*np.exp(-1 / 2.0 * np.sum(np.power((x - y) / lambs, 2)))
+        return (self.alpha**2)*np.exp(-1 / 2.0 * np.sum(np.power((x - y), 2)/lambs))
 
     def calculate_sigma(self, x, cov_f, lambs=None):
         """
@@ -99,7 +99,7 @@ class DynModel:
             for p in range(len(traj)-1):
                 # Join state and action
                 x.append(np.concatenate((traj[p][0], traj[p][1])))
-                y.append(traj[p+1][0])
+                y.append(traj[p+1][0]-traj[p][0])
         return x, y
 
     def estimate_hyperparams(self):
@@ -156,6 +156,7 @@ class DynModel:
         # Optimize marginal ll
         init = [1]*(self.s_dim+1)
         bounds = [(1e-9, None)]*(self.s_dim+1)
+        # TODO: Does minimization work right though?
         optimal_lambs = minimize(mll, init, method='L-BFGS-B', bounds=bounds, options = {'disp': True}).x
         return optimal_lambs
 
