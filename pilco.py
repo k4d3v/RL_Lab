@@ -58,9 +58,9 @@ class PILCO:
             print("Round ", n)
 
             # Learn GP dynamics model using all data (Sec. 2.1)
-            # lambs = [s_dim+1]*(s_dim+1)
-            # dyn_model = DynModel(s_dim, data, lambs)
-            # print("Average GP error: ", dyn_model.training_error())
+            #lambs = [1]*(s_dim+1)
+            #dyn_model = DynModel(s_dim, data, lambs)
+            #print("Average GP error: ", dyn_model.training_error())
             dyn_model = DynModel(s_dim, data)
             print("Average GP error: ", dyn_model.training_error_gp())
 
@@ -68,7 +68,7 @@ class PILCO:
             while True:
                 print("Policy search iteration ", i)
 
-                mu_delta, Sigma_delta = self.approximate_p_delta_t(dyn_model)  # TODO
+                mu_delta, Sigma_delta = self.approximate_p_delta_t(dyn_model, policy)  # TODO
 
                 # Approx. inference for policy evaluation (Sec. 2.2)
                 # Get J^pi(policy) (10-12), (24)
@@ -171,7 +171,13 @@ class PILCO:
 
         return dJ
 
-    def approximate_p_delta_t(self, dyn_model):
+    def approximate_p_delta_t(self, dyn_model, policy):
+        """
+        Approximates the predictive t-step distribution
+        :param dyn_model:
+        :param policy:
+        :return:
+        """
         # calculate   mu_delta
         # init
         n = dyn_model.N  # input (number of training data points)
@@ -183,8 +189,9 @@ class PILCO:
         # Generate test inputs
         test_inputs = []
         for ax in range(n):
-            mu_x = np.random.normal(size=dyn_model.s_dim+1) # TODO: What actions??
-            mu_x[-1] = dyn_model.x[ax][-1]
+            mu_x = np.random.normal(size=dyn_model.s_dim+1) # TODO: What actions?? (Maybe get from policy based on the state)
+            #mu_x[-1] = dyn_model.x[ax][-1]
+            mu_x[-1] = policy.get_action(mu_x[:-1])
             test_inputs.append(mu_x)
 
         # Predict mu and sigma for all test inputs
@@ -204,12 +211,12 @@ class PILCO:
         alpha = np.array([dyn_model.alpha] * D)  # alpha is (1, D) matrix ?
 
         # calculate q_ai
-        for i in range(1, n):
+        for i in range(n):
             # (16)
-            v[i] = x_s[i] - pred_results[i - 1][0]  # x_schlange and mu_schlange in paper, x_schlange is training input,
+            v[i] = x_s[i] - pred_results[i][0]  # x_schlange and mu_schlange in paper, x_schlange is training input,
             # mu_schlange is the mean of the "test" input distribution p(x[t-1],u[t-1])
             # TODO: Maybe return diag. matrix Sigma in dyn_model
-            Sigma_t_1 = np.diag(np.array([pred_results[i - 1][1]] * D))
+            Sigma_t_1 = np.diag(np.array([pred_results[i][1]] * D))
 
             for a in range(D):
                 # (15)
@@ -226,28 +233,33 @@ class PILCO:
         # Lambda = np.diag(length_scale)
         K = []  # K for all input und dimension, each term is also a matrix for all input and output
         for a in range(D):
-            K_dim = np.zeros((n, n))  # K_dim tmp to save the result of every dimension
+            K_dim = np.ones((n, n))  # K_dim tmp to save the result of every dimension
             Lambda_a = np.diag(np.array([length_scale[a]] * D))
             for i in range(n):
-                for j in range(n):
+                for j in range(i+1, n):
                     # (6)
-                    # K_dim[i][j] = (alpha[a] ** 2) * np.exp(-0.5 * (((x_s[i][a] - x_s[j][a]))**2)/length_scale[a])  # x_s is x_schlange in paper,training input
                     curr_x = (x_s[i] - x_s[j]).reshape(-1, 1)
-                    K_dim[i][j] = (alpha[a] ** 2) * np.exp(
+                    # x_s is x_schlange in paper,training input
+                    #kern = (alpha[a] ** 2) * np.exp(-0.5 * ((x_s[i][a] - x_s[j][a]) ** 2) / length_scale[a])
+                    #kern = (alpha[a] ** 2) * np.exp(-0.5 * (np.sum(x_s[i] - x_s[j]) ** 2) / length_scale[a])
+                    kern = 1e-10 * np.exp(
                         -0.5 * (np.dot(np.dot(curr_x.T, np.linalg.inv(Lambda_a)), curr_x)))
+                    K_dim[i][j] = kern
+                    K_dim[j][i] = kern
             K.append(K_dim)
 
         # calculate   beta, under (14)
         beta = np.zeros((n, D))
         for a in range(D):
-            beta[:, a] = (np.linalg.inv(K[a]) * y[:, a]).reshape(-1, )
+            beta[:, a] = (np.linalg.inv(K[a]) * y[:, a]).reshape(-1, ) # TODO: Fix (Values are too big)
 
-        # calculate   mu_delta (14)
+        # calculate mu_delta (14)
         mu_delta = np.zeros(D)
         for a in range(D):
             mu_delta[a] = np.dot(beta[:, a].reshape(-1, 1).T, q[:, a].reshape(-1, 1))
 
-        # calculate   k
+        # calculate k
+        # TODO: Understand computation
         k = []  # k for all input und dimension, each term is also a matrix for all input and output
         k_dim = np.zeros((n, n))  # k_dim tmp to save the result of every dimension
         for a in range(D):
