@@ -3,6 +3,8 @@ import torch
 from scipy.optimize import minimize
 from torch.autograd import Variable, grad
 from torch.distributions import Normal
+from sklearn.gaussian_process import GaussianProcessRegressor
+from sklearn.gaussian_process.kernels import RBF
 
 
 class DynModel:
@@ -28,6 +30,7 @@ class DynModel:
         self.mean = [] # TODO: Compute (?)
         self.cov_f = self.squared_expo_kernel
         self.setup_sigma()
+        self.fit_gp()
 
     def squared_expo_kernel(self, x, y, lambs=None):
         """
@@ -170,3 +173,26 @@ class DynModel:
             m, sig = self.predict(din)
             err.append(np.abs(dout - m))
         return np.sum(err)/len(self.x)
+
+    def training_error_gp(self):
+        """
+        Estimates the average error on the training data
+        :return: Average error
+        """
+        err = []
+        m = self.gp.predict(self.x)
+        for i, dout in zip(range(len(self.x)), self.y):
+            err.append(np.abs(dout - m[i]))
+        return np.sum(err)/len(self.x)
+
+    def fit_gp(self):
+        """
+        Fits a sklearn GP based on the training data
+        """
+        kern = RBF()
+        gp = GaussianProcessRegressor(kern)
+        gp.fit(self.x, self.y)
+        self.lambs = [gp.get_params()["kernel__length_scale"]]*(self.s_dim+1)
+        self.alpha = gp.alpha
+        self.gp = gp
+

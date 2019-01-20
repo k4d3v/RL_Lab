@@ -10,7 +10,7 @@ from dyn_model import DynModel
 
 
 class PILCO:
-    def __init__(self, env_name, J=1, N=1):
+    def __init__(self, env_name, J=2, N=10):
         """
         :param env_name: Name of the environment
         :param J: Number of rollouts
@@ -44,11 +44,11 @@ class PILCO:
                     # Apply random control signals and record data
                     data.append(policy.rollout())
 
-                dyn_model = DynModel(s_dim, data)
-                print("Average GP error before optimizing the hyperparams: ", dyn_model.training_error())
+                #dyn_model = DynModel(s_dim, data)
+                #print("Average GP error before optimizing the hyperparams: ", dyn_model.training_error())
 
                 # Learn hyperparams for dynamics GP
-                lambs = dyn_model.estimate_hyperparams()
+                #lambs = dyn_model.estimate_hyperparams()
                 break
             except ValueError:
                 print("Oops, some stupid numerical problem. Trying again...")
@@ -59,8 +59,10 @@ class PILCO:
 
             # Learn GP dynamics model using all data (Sec. 2.1)
             #lambs = [s_dim+1]*(s_dim+1)
-            dyn_model = DynModel(s_dim, data, lambs)
-            print("Average GP error: ", dyn_model.training_error())
+            #dyn_model = DynModel(s_dim, data, lambs)
+            #print("Average GP error: ", dyn_model.training_error())
+            dyn_model = DynModel(s_dim, data)
+            print("Average GP error: ", dyn_model.training_error_gp())
 
             i = 0
             while True:
@@ -175,11 +177,15 @@ class PILCO:
         x_s = [ax[:-1] for ax in dyn_model.x]
         # mu_schlange(t-1) is the mean of the "test" input distribution p(x[t-1],u[t-1])
         pred_results = [] # mu_t and sigma_t for each training point
+        #pred_results2 = []
 
         # Predict mu and sigma for all training inputs
-        for ax in dyn_model.x:
-            mu_s_t_1, Sigma_t_1 = dyn_model.predict(ax)
-            pred_results.append((ax[:-1]+mu_s_t_1, Sigma_t_1))
+        pred_mu, pred_Sigma = dyn_model.gp.predict(dyn_model.x, return_std=True)
+        for ax in range(len(dyn_model.x)):
+            #mu_s_t_1, Sigma_t_1 = dyn_model.predict(dyn_model.x[ax])
+            #pred_results2.append((dyn_model.x[ax][:-1]+mu_s_t_1, Sigma_t_1))
+            pred_results.append((pred_mu[ax], pred_Sigma[ax]))
+
 
         q = np.zeros((n, D))
         y = np.mat(dyn_model.y)   # output
@@ -195,7 +201,7 @@ class PILCO:
             v[i] = x_s[i] - pred_results[i-1][0]  # x_schlange and mu_schlange in paper, x_schlange is training input,
                                          # mu_schlange is the mean of the "test" input distribution p(x[t-1],u[t-1])
             # TODO: Maybe return diag. matrix Sigma in dyn_model
-            Sigma_t_1 = np.diag(np.array(list(pred_results[i - 1][1])*D))
+            Sigma_t_1 = np.diag(np.array([pred_results[i - 1][1]]*D))
 
             for a in range(D):
                 # (15)
@@ -232,16 +238,16 @@ class PILCO:
             mu_delta[a] = np.dot(beta[:, a].reshape(-1, 1).T, q[:, a].reshape(-1,1))
 
         # calculate   k
-        k = np.zeros(1, D)  # k for all input und dimension, each term is also a matrix for all input and output
-        k_dim = np.zeros(n, n)  # k_dim tmp to save the result of every dimension
-        for a in range(1, D + 1):
-            for i in range(1, n + 1):
-                for j in range(1, n + 1):
+        k = []  # k for all input und dimension, each term is also a matrix for all input and output
+        k_dim = np.zeros((n, n))  # k_dim tmp to save the result of every dimension
+        for a in range(D):
+            Lambda_a = np.diag(np.array([length_scale[a]] * D))
+            for i in range(1, n):
+                for j in range(n):
                     # (6)
-                    k_dim[i][j] = alpha ** 2 * np.exp(-0.5 * (x_s[i] - mu_s_t_1).T * np.linalg.inv(Lambda[a][a]) * (x_s[i] - mu_s_t_1))  # x_s is x_schlange in paper,training input
-            k[1][a] = k_dim
-
-
+                    curr_x = (x_s[i] - pred_results[i-1][0]).reshape(-1,1)
+                    k_dim[i][j] = (alpha[a] ** 2) * np.exp(-0.5 * np.dot(np.dot(curr_x.T, np.linalg.inv(Lambda_a)), curr_x))  # x_s is x_schlange in paper,training input
+            k.append(k_dim)
 
         # calculate   Sigma_delta
         # init
@@ -258,9 +264,9 @@ class PILCO:
                         R[a][b] = Sigma_t_1 * (np.linalg.inv(Lambda[a][a]) + np.linalg.inv(Lambda[b][b])) + np.eye(D)
                         if a != b:
                             # (18)=(20)=beta[a].T*(22)*beta[b]
-                            Sigma_delta[a][b] = beta[:, a].T * (((k[1][a] * k[1][b]) / np.sqrt(abs(R[a][b]))) * np.exp(0.5 * z[i][j].T * np.linalg.inv(R[a][b] * Sigma_t_1 * z[i][j]))) * beta[:, b] - mu_delta[a] * mu_delta[b]
+                            Sigma_delta[a][b] = beta[:, a].T * (((k[1][a] * k[1][b]) / np.sqrt(np.linalg.det(R[a][b]))) * np.exp(0.5 * z[i][j].T * np.linalg.inv(R[a][b] * Sigma_t_1 * z[i][j]))) * beta[:, b] - mu_delta[a] * mu_delta[b]
                         else:
                             # (17)=(23)+(20)
-                            Sigma_delta[a][a] = alpha[a] ** 2 -np.trace(np.linalg.inv(K[1][a] + np.eye(D))) * (((k[1][a] * k[1][a]) / np.sqrt(np.abs(R[a][a]))) * np.exp(0.5 * z[i][j].T * np.linalg.inv(R[a][a] * Sigma_t_1 * z[i][j]))) + beta[:,a].T * (((k[1][a] * k[1][a]) / np.sqrt(np.abs(R[a][a]))) * np.exp(0.5 * z[i][j].T * np.linalg.inv(R[a][a] * Sigma_t_1 * z[i][j]))) * beta[:, a] - mu_delta[a] * mu_delta[a]
+                            Sigma_delta[a][a] = alpha[a] ** 2 -np.trace(np.linalg.inv(K[1][a] + np.eye(D))) * (((k[1][a] * k[1][a]) / np.sqrt(np.np.linalg.det(R[a][a]))) * np.exp(0.5 * z[i][j].T * np.linalg.inv(R[a][a] * Sigma_t_1 * z[i][j]))) + beta[:,a].T * (((k[1][a] * k[1][a]) / np.sqrt(np.np.linalg.det(R[a][a]))) * np.exp(0.5 * z[i][j].T * np.linalg.inv(R[a][a] * Sigma_t_1 * z[i][j]))) * beta[:, a] - mu_delta[a] * mu_delta[a]
 
         return mu_delta, Sigma_delta
