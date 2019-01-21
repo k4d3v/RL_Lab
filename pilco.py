@@ -10,7 +10,7 @@ from dyn_model import DynModel
 
 
 class PILCO:
-    def __init__(self, env_name, J=2, N=10):
+    def __init__(self, env_name, J=1, N=1):
         """
         :param env_name: Name of the environment
         :param J: Number of rollouts
@@ -261,53 +261,47 @@ class PILCO:
         # calculate k
         # TODO: Understand computation
         k = []  # k for all input und dimension, each term is also a matrix for all input and output
-        k_dim = np.zeros((n, n))  # k_dim tmp to save the result of every dimension
+        k_dim = np.ones((n, n))  # k_dim tmp to save the result of every dimension
         for a in range(D):
             Lambda_a = np.diag(np.array([length_scale[a]] * D))
-            for i in range(1, n):
-                for j in range(n):
+            for i in range(n):
+                for j in range(i+1,n):
                     # (6)
-                    curr_x = (x_s[i] - pred_results[i - 1][0]).reshape(-1, 1)
-                    k_dim[i][j] = (alpha[a] ** 2) * np.exp(-0.5 * np.dot(np.dot(curr_x.T, np.linalg.inv(Lambda_a)),
-                                                                         curr_x))  # x_s is x_schlange in paper,training input
+                    curr_x = (x_s[i] - pred_results[i][0]).reshape(-1, 1)
+                    kern = (alpha[a] ** 2) * np.exp(-0.5 * np.dot(np.dot(curr_x.T, np.linalg.inv(Lambda_a)),
+                                                           curr_x))  # x_s is x_schlange in paper,training input
+                    k_dim[i][j] = kern
+                    k_dim[j][i] = kern
             k.append(k_dim)
 
         # calculate   Sigma_delta
         # init
-        z = np.zeros(n, n)
-        R = np.zeros(D, D)
-        Sigma_delta = []
+        R = np.zeros((D, D))
+        Sigma_delta = np.zeros((D, D))
 
-        for i in range(1, n + 1):
-            for j in range(1, n + 1):
-                for a in range(1, D + 1):
-                    for b in range(1, D + 1):
+        for i in range(n):
+            for j in range(n):
+                for a in range(D):
+                    Lambda_a = np.diag(np.array([length_scale[a]] * D))
+                    for b in range(D):
+                        Lambda_b = np.diag(np.array([length_scale[a]] * D))
                         # under (22)
-                        z[i][j] = np.linalg.inv(Lambda[a][a]) * v[i] + np.linalg.inv(Lambda[b][b]) * v[j]
-                        R[a][b] = Sigma_t_1 * (np.linalg.inv(Lambda[a][a]) + np.linalg.inv(Lambda[b][b])) + np.eye(D)
+                        Sigma_t_1 = pred_results[i][1]
+                        z_ij = np.dot(np.linalg.inv(Lambda_a), v[i].reshape(-1, 1))\
+                            + np.dot(np.linalg.inv(Lambda_b), v[j].reshape(-1, 1))
+                        R[a][b] = Sigma_t_1 * (np.linalg.inv(Lambda_a) + np.linalg.inv(Lambda_b)) + np.eye(D) # TODO: Which Sigma_t-1?
+
+                        q_ij = ((k[a][i][j] * k[b][i][j]) / np.sqrt(np.linalg.det(R[a][b]))) * np.exp(
+                            0.5 * z_ij.T * np.linalg.inv(R[a][b] * Sigma_t_1 * z_ij))
+
                         if a != b:
                             # (18)=(20)=beta[a].T*(22)*beta[b]
-                            Sigma_delta[a][b] = beta[:, a].T * (
-                                        ((k[1][a] * k[1][b]) / np.sqrt(np.linalg.det(R[a][b]))) * np.exp(
-                                    0.5 * z[i][j].T * np.linalg.inv(R[a][b] * Sigma_t_1 * z[i][j]))) * beta[:, b] - \
-                                                mu_delta[a] * mu_delta[b]
+                            E_delta = beta[:, a].T * q_ij * beta[:, b]
+                            Sigma_delta[a][b] =  E_delta - mu_delta[a] * mu_delta[b]
                         else:
                             # (17)=(23)+(20)
-                            Sigma_delta[a][a] = alpha[a] ** 2 - np.trace(np.linalg.inv(K[1][a] + np.eye(D))) * (
-                                        ((k[1][a] * k[1][a]) / np.sqrt(np.np.linalg.det(R[a][a]))) * np.exp(
-                                    0.5 * z[i][j].T * np.linalg.inv(R[a][a] * Sigma_t_1 * z[i][j]))) + beta[:, a].T * ((
-                                                                                                                                   (
-                                                                                                                                               k[
-                                                                                                                                                   1][
-                                                                                                                                                   a] *
-                                                                                                                                               k[
-                                                                                                                                                   1][
-                                                                                                                                                   a]) / np.sqrt(
-                                                                                                                               np.np.linalg.det(
-                                                                                                                                   R[
-                                                                                                                                       a][
-                                                                                                                                       a]))) * np.exp(
-                                0.5 * z[i][j].T * np.linalg.inv(R[a][a] * Sigma_t_1 * z[i][j]))) * beta[:, a] - \
-                                                mu_delta[a] * mu_delta[a]
+                            E_delta_sq = beta[:, a].T * q_ij * beta[:, a]
+                            Sigma_delta[a][a] = alpha[a] ** 2 - np.trace(np.linalg.inv(K[a] + np.eye(D))) * q_ij\
+                                + E_delta_sq - mu_delta[a] * mu_delta[a]
 
         return mu_delta, Sigma_delta
