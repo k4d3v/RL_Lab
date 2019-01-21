@@ -69,6 +69,7 @@ class PILCO:
                 print("Policy search iteration ", i)
 
                 mu_delta, Sigma_delta = self.approximate_p_delta_t(dyn_model, policy)  # TODO
+                # TODO: Maybe cascade predictions for n time steps
 
                 # Approx. inference for policy evaluation (Sec. 2.2)
                 # Get J^pi(policy) (10-12), (24)
@@ -183,24 +184,16 @@ class PILCO:
         n = dyn_model.N  # input (number of training data points)
         D = dyn_model.s_dim  # s_dim
         x_s = [ax[:-1] for ax in dyn_model.x]  # Training data
-        pred_results = []  # mu_t and sigma_t for each training point
-        # pred_results2 = []
 
-        # Generate test inputs
-        test_inputs = []
-        for ax in range(n):
-            mu_x = np.random.normal(size=dyn_model.s_dim+1) # TODO: What actions?? (Maybe get from policy based on the state)
-            #mu_x[-1] = dyn_model.x[ax][-1]
-            mu_x[-1] = policy.get_action(mu_x[:-1])
-            test_inputs.append(mu_x)
+        # Generate test input
+        mu_x = np.random.normal(size=dyn_model.s_dim+1) # TODO: What actions?? (Maybe get from policy based on the state)
+        #mu_x[-1] = dyn_model.x[ax][-1]
+        mu_x[-1] = policy.get_action(mu_x[:-1])
 
         # Predict mu and sigma for all test inputs
         # mu_schlange(t-1) is the mean of the "test" input distribution p(x[t-1],u[t-1])
-        pred_mu, pred_Sigma = dyn_model.gp.predict(test_inputs, return_std=True)
-        for ax in range(n):
-            # mu_s_t_1, Sigma_t_1 = dyn_model.predict(dyn_model.x[ax])
-            # pred_results2.append((dyn_model.x[ax][:-1]+mu_s_t_1, Sigma_t_1))
-            pred_results.append((pred_mu[ax], pred_Sigma[ax]))
+        pred_mu, pred_Sigma = dyn_model.gp.predict([mu_x], return_std=True)
+        pred_results = (pred_mu[0], pred_Sigma[0])
 
         q = np.zeros((n, D))
         y = np.mat(dyn_model.y)  # output
@@ -215,10 +208,10 @@ class PILCO:
         # calculate q_ai
         for i in range(n):
             # (16)
-            v[i] = x_s[i] - pred_results[i][0]  # x_schlange and mu_schlange in paper, x_schlange is training input,
+            v[i] = x_s[i] - pred_results[0]  # x_schlange and mu_schlange in paper, x_schlange is training input,
             # mu_schlange is the mean of the "test" input distribution p(x[t-1],u[t-1])
             # TODO: Maybe return diag. matrix Sigma in dyn_model
-            Sigma_t_1 = np.diag(np.array([pred_results[i][1]] * D))
+            Sigma_t_1 = np.diag(np.array([pred_results[1]] * D))
 
             for a in range(D):
                 # (15)
@@ -265,7 +258,7 @@ class PILCO:
             for b in range(D):
                 # Compute Q
                 # TODO: How to use all test data?? (Currently using only first one)
-                Q = self.compute_Q(alpha, Lambda_inv, a, b, x_s, v, pred_results[0][0], np.diag(np.array([pred_results[0][1]] * D)))
+                Q = self.compute_Q(alpha, Lambda_inv, a, b, x_s, v, pred_results[0], np.diag(np.array([pred_results[1]] * D)))
 
                 beta_a = beta[:, a].reshape(-1,1)
                 beta_b = beta[:, b].reshape(-1,1)
