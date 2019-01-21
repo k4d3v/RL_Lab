@@ -274,34 +274,49 @@ class PILCO:
                     k_dim[j][i] = kern
             k.append(k_dim)
 
-        # calculate   Sigma_delta
-        # init
-        R = np.zeros((D, D))
-        Sigma_delta = np.zeros((D, D))
+            # calculate z and R
+            z = np.zeros((D, 1))
+            R = np.zeros((D, D))
+            for i in range(n):
+                for j in range(n):
+                    for a in range(D):
+                        Lambda_a = np.diag(np.array([length_scale[a]] * D))
+                        for b in range(D):
+                            Lambda_b = np.diag(np.array([length_scale[a]] * D))
+                            # under (22)
+                            Sigma_t_1 = pred_results[i][1]
+                            z[i][j] = np.dot(np.linalg.inv(Lambda_a), v[i].reshape(-1, 1)) \
+                                      + np.dot(np.linalg.inv(Lambda_b), v[j].reshape(-1, 1))
+                            R[a][b] = Sigma_t_1 * (np.linalg.inv(Lambda_a) + np.linalg.inv(Lambda_b)) + np.eye(
+                                D)  # TODO: Which Sigma_t-1?
 
-        for i in range(n):
-            for j in range(n):
-                for a in range(D):
-                    Lambda_a = np.diag(np.array([length_scale[a]] * D))
-                    for b in range(D):
-                        Lambda_b = np.diag(np.array([length_scale[a]] * D))
-                        # under (22)
-                        Sigma_t_1 = pred_results[i][1]
-                        z_ij = np.dot(np.linalg.inv(Lambda_a), v[i].reshape(-1, 1))\
-                            + np.dot(np.linalg.inv(Lambda_b), v[j].reshape(-1, 1))
-                        R[a][b] = Sigma_t_1 * (np.linalg.inv(Lambda_a) + np.linalg.inv(Lambda_b)) + np.eye(D) # TODO: Which Sigma_t-1?
+            # calculate Q
+            Q = np.zeros((n, n))
+            for i in range(n):
+                for j in range(n):
+                    for a in range(D):
+                        for b in range(D):
+                            Sigma_t_1 = pred_results[i][1]
+                            # TODO： k_a and k_b are both scalar but not matrix, see (6)
+                            # (22), Q_ij should be a scalar, Q is a n*n matrix.
+                            Q[i][j] = ((k[a][i][j] * k[b][i][j]) / np.sqrt(np.linalg.det(R))) * np.exp(
+                                0.5 * z[i][j].T * np.linalg.inv(R) * Sigma_t_1 * z[i][j])
 
-                        q_ij = ((k[a][i][j] * k[b][i][j]) / np.sqrt(np.linalg.det(R[a][b]))) * np.exp(
-                            0.5 * z_ij.T * np.linalg.inv(R[a][b] * Sigma_t_1 * z_ij))
-
-                        if a != b:
-                            # (18)=(20)=beta[a].T*(22)*beta[b]
-                            E_delta = beta[:, a].T * q_ij * beta[:, b]
-                            Sigma_delta[a][b] =  E_delta - mu_delta[a] * mu_delta[b]
-                        else:
-                            # (17)=(23)+(20)
-                            E_delta_sq = beta[:, a].T * q_ij * beta[:, a]
-                            Sigma_delta[a][a] = alpha[a] ** 2 - np.trace(np.linalg.inv(K[a] + np.eye(D))) * q_ij\
-                                + E_delta_sq - mu_delta[a] * mu_delta[a]
+            # calculate Sigma_delta
+            Sigma_delta = np.zeros((D, D))
+            for a in range(D):
+                for b in range(D):
+                    if a != b:
+                        # (20)
+                        E_delta = beta[:, a].T * Q * beta[:, b]
+                        # (18) = (20)- mu_delta_a*mu_delta_b
+                        Sigma_delta[a][b] = E_delta - mu_delta[a] * mu_delta[b]
+                    else:
+                        # (23)
+                        E_var = alpha[a] ** 2 - np.trace(np.linalg.inv(K[a] + np.eye(D))) * Q
+                        # (20)
+                        E_delta_sq = beta[:, a].T * Q * beta[:, a]
+                        # (17)=(23)+(20)- mu_delta_a**2
+                        Sigma_delta[a][a] = E_var + E_delta_sq - mu_delta[a] ** 2
 
         return mu_delta, Sigma_delta
