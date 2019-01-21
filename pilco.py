@@ -206,6 +206,8 @@ class PILCO:
         y = np.mat(dyn_model.y)  # output
         v = np.zeros((n, D))
         length_scale = dyn_model.lambs
+        Lambda = [np.diag(np.array([length_scale[a]] * D)) for a in range(D)]
+        Lambda_inv = [np.linalg.inv(Lamb) for Lamb in Lambda]
         # alpha = np.ones(1, D)    ### nur fuer test, noch nicht bestimmt
         # TODO: Maybe estimate alphas for each dim. in dyn_model
         alpha = np.array([dyn_model.alpha] * D)  # alpha is (1, D) matrix ?
@@ -220,11 +222,10 @@ class PILCO:
 
             for a in range(D):
                 # (15)
-                Lambda_a = np.diag(np.array([length_scale[a]] * D))
-                fract = (alpha[a] ** 2) / np.sqrt(np.linalg.det(Sigma_t_1 * np.linalg.inv(Lambda_a) + np.eye(D)))
+                fract = (alpha[a] ** 2) / np.sqrt(np.linalg.det(Sigma_t_1 * Lambda_inv[a] + np.eye(D)))
                 vi = v[i].reshape(-1, 1)
                 expo = np.exp(
-                    (-1 / 2) * np.dot(np.dot(vi.T, np.linalg.inv(Sigma_t_1 + Lambda_a)),
+                    (-1 / 2) * np.dot(np.dot(vi.T, np.linalg.inv(Sigma_t_1 + Lambda[a])),
                                       vi))  # Sigma[t-1] is variances at time t-1 from GP
                 q[i][a] = fract * expo
 
@@ -234,7 +235,6 @@ class PILCO:
         K = []  # K for all input und dimension, each term is also a matrix for all input and output
         for a in range(D):
             K_dim = np.ones((n, n))  # K_dim tmp to save the result of every dimension
-            Lambda_a = np.diag(np.array([length_scale[a]] * D))
             for i in range(n):
                 for j in range(i+1, n):
                     # (6)
@@ -243,7 +243,7 @@ class PILCO:
                     #kern = (alpha[a] ** 2) * np.exp(-0.5 * ((x_s[i][a] - x_s[j][a]) ** 2) / length_scale[a])
                     #kern = (alpha[a] ** 2) * np.exp(-0.5 * (np.sum(x_s[i] - x_s[j]) ** 2) / length_scale[a])
                     kern = 1e-10 * np.exp(
-                        -0.5 * (np.dot(np.dot(curr_x.T, np.linalg.inv(Lambda_a)), curr_x)))
+                        -0.5 * (np.dot(np.dot(curr_x.T, Lambda_inv[a]), curr_x)))
                     K_dim[i][j] = kern
                     K_dim[j][i] = kern
             K.append(K_dim)
@@ -263,32 +263,33 @@ class PILCO:
         k = []  # k for all input und dimension, each term is also a matrix for all input and output
         k_dim = np.ones((n, n))  # k_dim tmp to save the result of every dimension
         for a in range(D):
-            Lambda_a = np.diag(np.array([length_scale[a]] * D))
             for i in range(n):
                 for j in range(i+1,n):
                     # (6)
                     curr_x = (x_s[i] - pred_results[i][0]).reshape(-1, 1)
-                    kern = (alpha[a] ** 2) * np.exp(-0.5 * np.dot(np.dot(curr_x.T, np.linalg.inv(Lambda_a)),
-                                                           curr_x))  # x_s is x_schlange in paper,training input
+                    # x_s is x_schlange in paper,training input
+                    kern = \
+                        (alpha[a] ** 2) * np.exp(-0.5 * np.dot(np.dot(curr_x.T, Lambda_inv[a]), curr_x))
                     k_dim[i][j] = kern
                     k_dim[j][i] = kern
             k.append(k_dim)
 
             # calculate z and R
-            z = np.zeros((D, 1))
-            R = np.zeros((D, D))
+            z = []
+            R = []
+
+            R_t = np.zeros((D, D))
             for i in range(n):
                 for j in range(n):
                     for a in range(D):
-                        Lambda_a = np.diag(np.array([length_scale[a]] * D))
                         for b in range(D):
-                            Lambda_b = np.diag(np.array([length_scale[a]] * D))
                             # under (22)
-                            Sigma_t_1 = pred_results[i][1]
-                            z[i][j] = np.dot(np.linalg.inv(Lambda_a), v[i].reshape(-1, 1)) \
-                                      + np.dot(np.linalg.inv(Lambda_b), v[j].reshape(-1, 1))
-                            R[a][b] = Sigma_t_1 * (np.linalg.inv(Lambda_a) + np.linalg.inv(Lambda_b)) + np.eye(
-                                D)  # TODO: Which Sigma_t-1?
+                            # TODO: Which Sigma_t-1?
+                            Sigma_t_1 = np.diag(np.array([pred_results[i][1]] * D))
+                            z.append(np.dot(Lambda_inv[a], v[i].reshape(-1, 1))\
+                                      + np.dot(Lambda_inv[b], v[j].reshape(-1, 1)))
+                            R_t = Sigma_t_1 * (Lambda_inv[a] + Lambda_inv[b]) + np.eye(D)
+                            R.append(R_t)
 
             # calculate Q
             Q = np.zeros((n, n))
@@ -296,7 +297,7 @@ class PILCO:
                 for j in range(n):
                     for a in range(D):
                         for b in range(D):
-                            Sigma_t_1 = pred_results[i][1]
+                            Sigma_t_1 = np.diag(np.array([pred_results[i][1]] * D))
                             # TODO： k_a and k_b are both scalar but not matrix, see (6)
                             # (22), Q_ij should be a scalar, Q is a n*n matrix.
                             Q[i][j] = ((k[a][i][j] * k[b][i][j]) / np.sqrt(np.linalg.det(R))) * np.exp(
