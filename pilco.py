@@ -101,7 +101,7 @@ class PILCO:
 
         return policy
 
-    def get_J(self, mu_delta, Sigma_delta, dyn_model):
+    def get_J(self, mu_delta, Sigma_delta, dyn_model, policy):
         """
         Returns a function which constructs a gaussian approximation for every p(x_t) based on subsequent one-step predictions and computes the expected values
         :param mu_delta: Mean of approximated p_delta_t
@@ -110,45 +110,81 @@ class PILCO:
         :return: Function for estimating J (Expected values)
         """
 
-        def E_x_t(x):
-            N = dyn_model.N  # number of inputs
-            x_t = 0  # input at t
-            x_t_1 = 0  # input at t-1
+        def J(x_t):
+            """
+            :param :
+            :return: expected return
+            """
 
-            mu_t_1, sigma_t_1 = dyn_model.predict(dyn_model.x)  # ?
+            def E_x_t(x_t):
+                """
+                :param x_t: input at t
+                :return: E_x_t : expected return at t
+                """
+                # TODO: x_t_1, mu_t_1, sigma_t_1
+                x_t_1 = 0  # input at t-1
+                n = dyn_model.N  # input (number of training data points)
+                D = dyn_model.s_dim
 
-            x_target = 0  # target state
-            sigma_c = 0  # control the width of cost function, top right of page 4
 
-            # under 2.1
-            delta_t = x_t - x_t_1
+                # Generate test inputs
+                test_inputs = []
+                for ax in range(n):
+                    mu_x = np.random.normal(size=dyn_model.s_dim + 1)
+                    mu_x[-1] = policy.get_action(mu_x[:-1])
+                    test_inputs.append(mu_x)
 
-            # (10)
-            mu_t = mu_t_1 + mu_delta
-            # (11)
-            sigma_t = sigma_t_1 + Sigma_delta + np.cov(x_t_1, delta_t) + np.cov(delta_t, x_t_1)
+                mu_t_1, sigma_t_1 = dyn_model.gp.predict(test_inputs, return_std=True)
 
-            """ https://pdfs.semanticscholar.org/c9f2/1b84149991f4d547b3f0f625f710750ad8d9.pdf 
-                Page 54(66 of 217)  """
-            I = np.eye(N)
-            C = 0  # np.zeros(N, N)
-            T_inv = (1 / sigma_c ** 2) * C.T * C
-            # KIT: (3.46)
-            S = T_inv * np.linalg.inv(I + sigma_t * T_inv)
 
-            # KIT: (3.45)
-            E_x_t = 1 - (1 / (np.linalg.det(I + sigma_t * T_inv)) ** 2) * np.exp(
-                -0.5 * (mu_t - x_target).T * S * (mu_t - x_target))
 
-            return E_x_t
 
-        summe = 0
-        N = dyn_model.N
-        # (2)
-        for t in range(1, N + 1):
-            x = dyn_model.x
-            summe = summe + E_x_t(x)
-        J = summe
+
+
+                # defined according to the model
+                x_target = np.zeros(n)  # target state
+                sigma_c = 0.25  # control the width of cost function, top right of page 4
+                             # in KIT's paper,sigma_c is represented by a,in the example on page 64, a=  0.25
+                l_p = 0.6413  # pendulum length, l_p = 0.6413 m, see User Manual
+
+
+
+
+                # under 2.1
+                delta_t = x_t - x_t_1
+
+                # (10)
+                mu_t = mu_t_1 + mu_delta
+                # (11)
+                sigma_t = sigma_t_1 + Sigma_delta + np.cov(x_t_1, delta_t) + np.cov(delta_t, x_t_1)
+
+                """ https://pdfs.semanticscholar.org/c9f2/1b84149991f4d547b3f0f625f710750ad8d9.pdf 
+                    Page 54(66 of 217)  """
+                I = np.eye(n)
+
+                # TODO: what is C and T? Example see Page 64 (3.71)
+                C = np.zeros((D, D))  # C is related to l_p, the pendulum length
+                # C = np.array([[1.0, l_p, 0.0], [0.0, 0.0, l_p]])
+                T_inv = (1 / sigma_c ** 2) * C.T * C
+
+                # KIT: (3.46)
+                S = T_inv * np.linalg.inv(I + sigma_t * T_inv)
+
+                # KIT: (3.45)
+                E_x_t = 1 - (1 / np.sqrt(np.linalg.det(I + sigma_t * T_inv))) * np.exp(
+                    -0.5 * np.dot(np.dot((mu_t - x_target).T,  S), (mu_t - x_target)))
+
+                return E_x_t
+
+            Ext_sum = 0
+            n = dyn_model.N
+            x_s = [ax[:-1] for ax in dyn_model.x]  # Training data
+            # (2)
+            for t in range(n):
+                x_t = x_s[t]
+                Ext_sum = Ext_sum + E_x_t(x_t)
+
+            return Ext_sum
 
         return J
 
@@ -303,7 +339,6 @@ class PILCO:
                 kern_a = (alpha[a] ** 2) * np.exp(-0.5 * np.dot(np.dot(curr_xi.T, Lambda_inv[a]), curr_xi))
                 curr_xj = (x_s[j] - mu_t).reshape(-1, 1)
                 kern_b = (alpha[b] ** 2) * np.exp(-0.5 * np.dot(np.dot(curr_xj.T, Lambda_inv[b]), curr_xj))
-                # TODO： k_a and k_b are both scalar but not matrix, see (6)
 
                 # Compute R
                 R = Sigma_t * (Lambda_inv[a] + Lambda_inv[b]) + np.eye(D)
