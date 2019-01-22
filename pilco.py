@@ -17,6 +17,7 @@ class PILCO:
         :param N: Number of iterations
         """
         self.env_name = env_name
+        self.env = gym.make(env_name)
         self.J = J
         self.N = N
 
@@ -28,6 +29,7 @@ class PILCO:
 
         # Init. environment
         env = gym.make(self.env_name)
+        self.env = env
         # Dimension of states
         s_dim = env.observation_space.shape[0]
 
@@ -107,7 +109,7 @@ class PILCO:
         :param policy:
         :return: Function for estimating J (Expected values)
         """
-        def J(apolicy):
+        def J(param_array):
             """
             :param apolicy: Current policy
             :return: expected return
@@ -148,6 +150,10 @@ class PILCO:
 
             Ext_sum = 0
             n = dyn_model.N
+
+            # Reconstruct policy
+            apolicy = Policy(self.env)
+            apolicy.update_Theta(param_array)
 
             # Generate initial test input
             x0 = np.random.normal(size=dyn_model.s_dim + 1)

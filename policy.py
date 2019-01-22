@@ -87,10 +87,11 @@ class Policy():
         :param dJ: Function for computing the gradient of the expected return
         """
         # TODO: Transform policy params into right data structure
-        init = self.Theta
+        init = self.param_list()
+        init = np.array([0,0,0])
         #new_Theta = minimize(J, init, method='L-BFGS-B', jac=dJ, options={'disp': True}).x
         new_Theta = minimize(J, init, method='L-BFGS-B', options={'disp': True}).x
-        self.Theta = new_Theta
+        self.update_Theta(new_Theta)
 
     def check_convergence(self, old_Theta):
         """
@@ -99,3 +100,12 @@ class Policy():
         :return: True if convergence
         """
         return False
+
+    def param_list(self):
+        pl = list(self.Theta.values())
+        return np.array([param.flatten() for param in pl])
+
+    def update_Theta(self, new_Theta):
+        self.Theta["W"] = new_Theta[0]
+        self.Theta["Lamb"] = new_Theta[1]
+        self.Theta["Mu"] = new_Theta[2]
