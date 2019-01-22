@@ -68,8 +68,7 @@ class PILCO:
             while True:
                 print("Policy search iteration ", i)
 
-                mu_delta, Sigma_delta = self.approximate_p_delta_t(dyn_model, policy)  # TODO
-                # TODO: Maybe cascade predictions for n time steps
+                #mu_delta, Sigma_delta = self.approximate_p_delta_t(dyn_model, policy)  # TODO
 
                 # Approx. inference for policy evaluation (Sec. 2.2)
                 # Get J^pi(policy) (10-12), (24)
@@ -79,6 +78,12 @@ class PILCO:
                 # Get the gradient of J (26-30)
                 # TODO: Torch gradient
                 dJ = self.get_dJ(policy.Theta)
+
+                # Generate test input
+                mu_x = np.random.normal(size=dyn_model.s_dim + 1)
+                # TODO: What actions?? (Maybe get from policy based on the state)
+                # mu_x[-1] = dyn_model.x[ax][-1]
+                mu_x[-1] = policy.get_action(mu_x[:-1])
 
                 # Learn policy
                 # Update policy (CG or L-BFGS)
@@ -208,7 +213,7 @@ class PILCO:
 
         return dJ
 
-    def approximate_p_delta_t(self, dyn_model, policy):
+    def approximate_p_delta_t(self, dyn_model, policy, mu_x):
         """
         Approximates the predictive t-step distribution
         :param dyn_model:
@@ -220,11 +225,6 @@ class PILCO:
         n = dyn_model.N  # input (number of training data points)
         D = dyn_model.s_dim  # s_dim
         x_s = [ax[:-1] for ax in dyn_model.x]  # Training data
-
-        # Generate test input
-        mu_x = np.random.normal(size=dyn_model.s_dim+1) # TODO: What actions?? (Maybe get from policy based on the state)
-        #mu_x[-1] = dyn_model.x[ax][-1]
-        mu_x[-1] = policy.get_action(mu_x[:-1])
 
         # Predict mu and sigma for all test inputs
         # mu_schlange(t-1) is the mean of the "test" input distribution p(x[t-1],u[t-1])
