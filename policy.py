@@ -88,7 +88,8 @@ class Policy():
         """
         # TODO: Transform policy params into right data structure
         init = self.Theta
-        new_Theta = minimize(J, init, method='L-BFGS-B', jac=dJ, options={'disp': True}).x
+        #new_Theta = minimize(J, init, method='L-BFGS-B', jac=dJ, options={'disp': True}).x
+        new_Theta = minimize(J, init, method='L-BFGS-B', options={'disp': True}).x
         self.Theta = new_Theta
 
     def check_convergence(self, old_Theta):

@@ -72,18 +72,12 @@ class PILCO:
 
                 # Approx. inference for policy evaluation (Sec. 2.2)
                 # Get J^pi(policy) (10-12), (24)
-                J = self.get_J(mu_delta, Sigma_delta, dyn_model)  # TODO
+                J = self.get_J(dyn_model, policy)  # TODO
 
                 # Policy improvement based on the gradient (Sec. 2.3)
                 # Get the gradient of J (26-30)
                 # TODO: Torch gradient
-                dJ = self.get_dJ(policy.Theta)
-
-                # Generate test input
-                mu_x = np.random.normal(size=dyn_model.s_dim + 1)
-                # TODO: What actions?? (Maybe get from policy based on the state)
-                # mu_x[-1] = dyn_model.x[ax][-1]
-                mu_x[-1] = policy.get_action(mu_x[:-1])
+                dJ = self.get_dJ(policy)
 
                 # Learn policy
                 # Update policy (CG or L-BFGS)
@@ -106,45 +100,26 @@ class PILCO:
 
         return policy
 
-    def get_J(self, mu_delta, Sigma_delta, dyn_model, policy):
+    def get_J(self, dyn_model, policy):
         """
         Returns a function which constructs a gaussian approximation for every p(x_t) based on subsequent one-step predictions and computes the expected values
-        :param mu_delta: Mean of approximated p_delta_t
-        :param Sigma_delta: Std of approximated p_delta_t
         :param dyn_model: Trained dynamics model
+        :param policy:
         :return: Function for estimating J (Expected values)
         """
-
-        def J(x_t):
+        def J(apolicy):
             """
-            :param :
+            :param apolicy: Current policy
             :return: expected return
             """
-
-            def E_x_t(x_t):
+            def E_x_t(mu_t, sigma_t):
                 """
-                :param x_t: input at t
+                :param mu_t:
+                :param sigma_t:
                 :return: E_x_t : expected return at t
                 """
-                # TODO: x_t_1, mu_t_1, sigma_t_1
-                x_t_1 = 0  # input at t-1
                 n = dyn_model.N  # input (number of training data points)
                 D = dyn_model.s_dim
-
-
-                # Generate test inputs
-                test_inputs = []
-                for ax in range(n):
-                    mu_x = np.random.normal(size=dyn_model.s_dim + 1)
-                    mu_x[-1] = policy.get_action(mu_x[:-1])
-                    test_inputs.append(mu_x)
-
-                mu_t_1, sigma_t_1 = dyn_model.gp.predict(test_inputs, return_std=True)
-
-
-
-
-
 
                 # defined according to the model
                 x_target = np.zeros(n)  # target state
@@ -152,25 +127,15 @@ class PILCO:
                              # in KIT's paper,sigma_c is represented by a,in the example on page 64, a=  0.25
                 l_p = 0.6413  # pendulum length, l_p = 0.6413 m, see User Manual
 
-
-
-
-                # under 2.1
-                delta_t = x_t - x_t_1
-
-                # (10)
-                mu_t = mu_t_1 + mu_delta
-                # (11)
-                sigma_t = sigma_t_1 + Sigma_delta + np.cov(x_t_1, delta_t) + np.cov(delta_t, x_t_1)
-
                 """ https://pdfs.semanticscholar.org/c9f2/1b84149991f4d547b3f0f625f710750ad8d9.pdf 
                     Page 54(66 of 217)  """
                 I = np.eye(n)
 
                 # TODO: what is C and T? Example see Page 64 (3.71)
-                C = np.zeros((D, D))  # C is related to l_p, the pendulum length
-                # C = np.array([[1.0, l_p, 0.0], [0.0, 0.0, l_p]])
-                T_inv = (1 / sigma_c ** 2) * C.T * C
+                #C = np.zeros((D, D))  # C is related to l_p, the pendulum length
+                #C = np.array([[1.0, l_p, 0.0], [0.0, 0.0, l_p]])
+                #T_inv = (1 / sigma_c ** 2) * C.T * C
+                T_inv = np.ones((D,D))
 
                 # KIT: (3.46)
                 S = T_inv * np.linalg.inv(I + sigma_t * T_inv)
@@ -183,20 +148,46 @@ class PILCO:
 
             Ext_sum = 0
             n = dyn_model.N
-            x_s = [ax[:-1] for ax in dyn_model.x]  # Training data
-            # (2)
+
+            # Generate initial test input
+            x0 = np.random.normal(size=dyn_model.s_dim + 1)
+            # TODO: What actions?? (Maybe get from policy based on the state)
+            # mu_x[-1] = dyn_model.x[ax][-1]
+            x0[-1] = apolicy.get_action(x0[:-1])
+
+            pred_mu, pred_Sigma = dyn_model.gp.predict([x0], return_std=True)
+
+            # Compute mu_t for t from 1 to n
+            # (10)-(12)
+            x_t_1 = x0
+            mu_t_1 = pred_mu[0]
+            sigma_t_1 = pred_Sigma[0]
             for t in range(n):
-                x_t = x_s[t]
-                Ext_sum = Ext_sum + E_x_t(x_t)
+                mu_delta, Sigma_delta = self.approximate_p_delta_t(dyn_model, mu_t_1)
+                # under 2.1
+                # (10)
+                mu_t = mu_t_1 + mu_delta
+                # (11)
+                x_t = np.random.normal(mu_t_1, sigma_t_1)
+                delta_t = x_t-x_t_1
+                sigma_t = sigma_t_1 + Sigma_delta + np.cov(x_t_1, delta_t) + np.cov(delta_t, x_t_1)
+
+                # (2)
+                Ext_sum += E_x_t(mu_t, sigma_t)
+
+                # Update x, mu and sigma
+                x_t_1 = x_t
+                mu_t_1 = mu_t
+                sigma_t_1 = sigma_t
 
             return Ext_sum
 
         return J
 
-    def get_dJ(self, Theta):
+    def get_dJ(self, policy):
         """
         Returns a function which can estimate the gradient of the expected return
-        :param Theta: Policy param.s
+        :param policy:
         :return: function dJ
         """
 
@@ -208,16 +199,16 @@ class PILCO:
             # TODO: Torch grads
             # TODO: Maybe other deriv.s are also needed despite torch?
             # (26) Derivative of expected returns w.r.t. policy params
-            dExt = grad(Ext, Theta)
+            dExt = grad(Ext, policy.Theta)
             return dExt
 
         return dJ
 
-    def approximate_p_delta_t(self, dyn_model, policy, mu_x):
+    def approximate_p_delta_t(self, dyn_model, mu_x):
         """
         Approximates the predictive t-step distribution
         :param dyn_model:
-        :param policy:
+        :param mu_x:
         :return:
         """
         # calculate   mu_delta
