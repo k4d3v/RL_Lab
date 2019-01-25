@@ -8,17 +8,15 @@ class Policy():
     """
     Represents a RBF policy
     """
-    def __init__(self, env, n_basis=50, dim_theta=305):
+    def __init__(self, env, n_basis=50):
         """
         Nonlinear RBF network, used as a state-feedback controller
         :param env: Environment
         :param n_basis: Number of basis functions
-        :param dim_theta: Dimension of each element of Theta
         """
         self.env = env
         self.s_dim = self.env.observation_space.shape[0]
         self.n_basis = n_basis
-        self.dim_theta = dim_theta # TODO: Why R^305!? (See paper)
         # Init. random control param.s
         # TODO: Torch gradientable
         W = np.random.normal(size=(self.n_basis))
@@ -87,11 +85,11 @@ class Policy():
         :param dJ: Function for computing the gradient of the expected return
         """
         # TODO: Transform policy params into right data structure
-        init = self.param_list()
-        init = np.array([0,0,0])
+        init = self.param_array()
+        #init = np.array([0,0,0])
         #new_Theta = minimize(J, init, method='L-BFGS-B', jac=dJ, options={'disp': True}).x
         new_Theta = minimize(J, init, method='L-BFGS-B', options={'disp': True}).x
-        self.update_Theta(new_Theta)
+        self.assign_Theta(new_Theta)
 
     def check_convergence(self, old_Theta):
         """
@@ -101,11 +99,31 @@ class Policy():
         """
         return False
 
-    def param_list(self):
+    def param_array(self):
+        """
+        Returns an array containing all the policy parameters
+        :return: np array with the policy params
+        """
         pl = list(self.Theta.values())
-        return np.array([param.flatten() for param in pl])
+        # Store only diagonal of Lambda
+        pl[1] = np.diag(pl[1])
+        params = [list(param.flatten()) for param in pl]
+        return np.array(params[0]+params[1]+params[2])
 
-    def update_Theta(self, new_Theta):
-        self.Theta["W"] = new_Theta[0]
-        self.Theta["Lamb"] = new_Theta[1]
-        self.Theta["Mu"] = new_Theta[2]
+    def assign_Theta(self, pa):
+        """
+        Reconstructs the parameters W, Mu, Lambda from the given array and sets them as policy parameters
+        :param pa: parameters array
+        """
+        # Reconstruct policy params
+        mui = self.n_basis+self.s_dim
+        W = pa[:self.n_basis]
+        lambdi = pa[self.n_basis:mui]
+        Lamb = np.diag(lambdi)
+        Mu = pa[mui:]
+        Mu = Mu.reshape(self.n_basis, self.s_dim)
+
+        # Assign policy params
+        self.Theta["W"] = W
+        self.Theta["Lamb"] = Lamb
+        self.Theta["Mu"] = Mu

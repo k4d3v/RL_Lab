@@ -153,7 +153,7 @@ class PILCO:
 
             # Reconstruct policy
             apolicy = Policy(self.env)
-            apolicy.update_Theta(param_array)
+            apolicy.assign_Theta(param_array)
 
             # Generate initial test input
             x0 = np.random.normal(size=dyn_model.s_dim + 1)
@@ -167,15 +167,20 @@ class PILCO:
             # (10)-(12)
             x_t_1 = x0
             mu_t_1 = pred_mu[0]
-            sigma_t_1 = pred_Sigma[0]
+            sigma_t_1 = np.diag([pred_Sigma[0]]*apolicy.s_dim)
             for t in range(n):
-                mu_delta, Sigma_delta = self.approximate_p_delta_t(dyn_model, mu_t_1)
+                mu_delta, Sigma_delta = self.approximate_p_delta_t(dyn_model, x_t_1)
                 # under 2.1
                 # (10)
                 mu_t = mu_t_1 + mu_delta
                 # (11)
-                x_t = np.random.normal(mu_t_1, sigma_t_1)
+                # TODO: Sigma is not a diagonal matrix!
+                x_t = [np.random.normal(mu_t_1[d], np.diag(sigma_t_1)[d]) for d in range(mu_t_1.shape[0])]
+                x_t = np.array(x_t + list(apolicy.get_action(np.array(x_t))))
                 delta_t = x_t-x_t_1
+                # TODO: Fix (See Deisenroth)
+                xx = np.cov(x_t_1, delta_t)
+                xxx = np.cov(delta_t, x_t_1)
                 sigma_t = sigma_t_1 + Sigma_delta + np.cov(x_t_1, delta_t) + np.cov(delta_t, x_t_1)
 
                 # (2)
@@ -210,11 +215,11 @@ class PILCO:
 
         return dJ
 
-    def approximate_p_delta_t(self, dyn_model, mu_x):
+    def approximate_p_delta_t(self, dyn_model, x):
         """
         Approximates the predictive t-step distribution
         :param dyn_model:
-        :param mu_x:
+        :param x:
         :return:
         """
         # calculate   mu_delta
@@ -225,7 +230,7 @@ class PILCO:
 
         # Predict mu and sigma for all test inputs
         # mu_schlange(t-1) is the mean of the "test" input distribution p(x[t-1],u[t-1])
-        pred_mu, pred_Sigma = dyn_model.gp.predict([mu_x], return_std=True)
+        pred_mu, pred_Sigma = dyn_model.gp.predict([x], return_std=True)
         pred_results = (pred_mu[0], pred_Sigma[0])
 
         q = np.zeros((n, D))
