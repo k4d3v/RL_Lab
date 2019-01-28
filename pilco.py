@@ -137,7 +137,13 @@ class PILCO:
                 #C = np.zeros((D, D))  # C is related to l_p, the pendulum length
                 #C = np.array([[1.0, l_p, 0.0], [0.0, 0.0, l_p]])
                 #T_inv = (1 / sigma_c ** 2) * C.T * C
-                T_inv = np.eye(D)
+                T_inv = np.zeros((D,D))
+                T_inv[0][0] = 1
+                T_inv[0][1] = l_p
+                T_inv[1][0] = l_p
+                T_inv[1][1] = l_p**2
+                T_inv[2][2] = l_p**2
+                T_inv *= sigma_c**(-2)
 
                 # KIT: (3.46)
                 S = T_inv * np.linalg.inv(I + sigma_t * T_inv)
