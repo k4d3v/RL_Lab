@@ -189,10 +189,13 @@ class DynModel:
         """
         Fits a sklearn GP based on the training data
         """
-        kern = RBF()
+        kern = RBF(length_scale=[1]*(self.s_dim+1))
         gp = GaussianProcessRegressor(kern)
         gp.fit(self.x, self.y)
-        self.lambs = [gp.get_params()["kernel__length_scale"]]*(self.s_dim+1)
-        #self.alpha = gp.alpha
+        self.lambs = gp.kernel_.get_params()["length_scale"]
+        self.alpha = gp.alpha
         self.gp = gp
+        print("GPML kernel: %s" % gp.kernel_)
+        print(gp.kernel_.get_params())
+        print("Done fitting GP")
 
