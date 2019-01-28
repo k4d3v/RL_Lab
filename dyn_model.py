@@ -193,7 +193,7 @@ class DynModel:
         gp = GaussianProcessRegressor(kern)
         gp.fit(self.x, self.y)
         self.lambs = gp.kernel_.get_params()["length_scale"]
-        self.alpha = gp.alpha
+        #self.alpha = gp.alpha
         self.gp = gp
         print("GPML kernel: %s" % gp.kernel_)
         print(gp.kernel_.get_params())

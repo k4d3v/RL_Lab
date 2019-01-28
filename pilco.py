@@ -194,7 +194,7 @@ class PILCO:
             x_t_1 = x0
             mu_t_1 = pred_mu[0]
             sigma_t_1 = np.diag([pred_Sigma[0]]*apolicy.s_dim)
-            for t in range(10):
+            for t in range(3):
                 print("Time step ", t)
 
                 mu_delta, Sigma_delta, cov = self.approximate_p_delta_t(dyn_model, x_t_1)
