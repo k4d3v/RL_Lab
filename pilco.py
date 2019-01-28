@@ -296,7 +296,7 @@ class PILCO:
                     # self.x_s is x_schlange in paper,training input
                     #kern = (self.alpha[a] ** 2) * np.exp(-0.5 * ((self.x_s[i][a] - self.x_s[j][a]) ** 2) / length_scale[a])
                     #kern = (self.alpha[a] ** 2) * np.exp(-0.5 * (np.sum(self.x_s[i] - self.x_s[j]) ** 2) / length_scale[a])
-                    kern = self.alpha[a]**2 * np.exp(
+                    kern = dyn_model.alpha * np.exp(
                         -0.5 * (np.dot(np.dot(curr_x.T, self.Lambda_inv[a]), curr_x)))
                     K_dim[i][j] = kern
                     K_dim[j][i] = kern
@@ -328,7 +328,7 @@ class PILCO:
                     Sigma_delta[a][b] = E_delta - mu_delta[a] * mu_delta[b]
                 else:
                     # (23)
-                    E_var = self.alpha[a] ** 2 - np.trace(K_inv[a] * Q)
+                    E_var = dyn_model.alpha ** 2 - np.trace(K_inv[a] * Q)
                     # (20)
                     E_delta_sq = np.dot(np.dot(beta_a.T, Q), beta_a)
                     # (17)=(23)+(20)- mu_delta_a**2
@@ -379,7 +379,7 @@ class PILCO:
                 ksi_j = self.x_s[j] - mu_t
                 z_ij = (np.dot(self.Lambda_inv[a], ksi_i) + np.dot(self.Lambda_inv[b], ksi_j)).reshape(-1,1)
 
-                fst = 2*(np.log(self.alpha[a])+np.log(self.alpha[b]))
+                fst = 2*(np.log(1e-5)+np.log(1e-5))
 
                 snd_1 = np.dot(np.dot(ksi_i.T, self.Lambda_inv[a]), ksi_i)
                 snd_2 = np.dot(np.dot(ksi_j.T, self.Lambda_inv[b]), ksi_j)
@@ -417,5 +417,5 @@ class PILCO:
         self.Lambda_inv = [np.linalg.inv(Lamb) for Lamb in self.Lambda]
         # alpha = np.ones(1, D)    ### nur fuer test, noch nicht bestimmt
         # TODO: Maybe estimate alphas for each dim. in dyn_model
-        self.alpha = np.array([dyn_model.alpha] * self.D)  # alpha is (1, D) matrix ?
+        self.alpha = np.array([1] * self.D)  # alpha is (1, D) matrix ?
         self.x_s = [ax[:-1] for ax in dyn_model.x]  # Training data
