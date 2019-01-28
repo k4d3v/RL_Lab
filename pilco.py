@@ -4,6 +4,7 @@ import gym
 import quanser_robots
 import numpy as np
 from torch.autograd import grad
+from timeit import default_timer as timer
 
 from policy import Policy
 from dyn_model import DynModel
@@ -26,6 +27,7 @@ class PILCO:
         Perform PILCO algorithm on initial random RBF policy
         :return: Optimal policy
         """
+        start = timer()
 
         # Init. environment
         env = gym.make(self.env_name)
@@ -74,7 +76,7 @@ class PILCO:
 
                 # Approx. inference for policy evaluation (Sec. 2.2)
                 # Get J^pi(policy) (10-12), (24)
-                J = self.get_J(dyn_model, policy)  # TODO
+                J = self.get_J(dyn_model)  # TODO
 
                 # Policy improvement based on the gradient (Sec. 2.3)
                 # Get the gradient of J (26-30)
@@ -100,26 +102,29 @@ class PILCO:
             # Convergence check
             # TODO
 
+        print("Training done, ", timer()-start)
         return policy
 
-    def get_J(self, dyn_model, policy):
+    def get_J(self, dyn_model):
         """
         Returns a function which constructs a gaussian approximation for every p(x_t) based on subsequent one-step predictions and computes the expected values
         :param dyn_model: Trained dynamics model
-        :param policy:
         :return: Function for estimating J (Expected values)
         """
         def J(param_array):
             """
-            :param apolicy: Current policy
+            :param param_array: Current policy params
             :return: expected return
             """
+            astart = timer()
             def E_x_t(mu_t, sigma_t):
                 """
                 :param mu_t:
                 :param sigma_t:
                 :return: E_x_t : expected return at t
                 """
+                start = timer()
+
                 n = dyn_model.N  # input (number of training data points)
                 D = dyn_model.s_dim
 
@@ -155,6 +160,7 @@ class PILCO:
                     -0.5 * np.dot(np.dot((mu_t - x_target).T,  S), (mu_t - x_target)))
                 E_x_t = 1 - fact * expo
 
+                print("Ext done", timer()-start)
                 return E_x_t
 
             Ext_sum = 0
@@ -198,6 +204,7 @@ class PILCO:
                 mu_t_1 = mu_t
                 sigma_t_1 = sigma_t
 
+            print("J done, ", timer()-astart)
             return Ext_sum
 
         return J
@@ -229,6 +236,8 @@ class PILCO:
         :param x:
         :return:
         """
+        start = timer()
+
         # calculate   mu_delta
         # init
         n = dyn_model.N  # input (number of training data points)
@@ -335,6 +344,7 @@ class PILCO:
                 acol += prod
             cov[:, a] = acol
 
+        print("Done approximating mu and sigma delta, ", timer()-start)
         return mu_delta, Sigma_delta, cov
 
     def compute_Q(self, alpha, Lambda_inv, a, b, x_s, v, mu_t, Sigma_t):
@@ -350,6 +360,8 @@ class PILCO:
         :param Sigma_t: Predicted Sigma for t-1
         :return: n x n matrix Q
         """
+        start = timer()
+
         n = len(x_s)
         D = alpha.shape[0]
 
@@ -370,4 +382,6 @@ class PILCO:
                 frac = kern_a * kern_b / np.sqrt(np.linalg.det(R))
                 expo = np.exp(0.5 * np.dot(np.dot(np.dot(z_ij.T, np.linalg.inv(R)), Sigma_t), z_ij))
                 Q[i][j] = frac*expo
+
+        print("Done estimating Q, ", timer()-start)
         return Q
