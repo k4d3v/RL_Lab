@@ -296,7 +296,7 @@ class PILCO:
                     # self.x_s is x_schlange in paper,training input
                     #kern = (self.alpha[a] ** 2) * np.exp(-0.5 * ((self.x_s[i][a] - self.x_s[j][a]) ** 2) / length_scale[a])
                     #kern = (self.alpha[a] ** 2) * np.exp(-0.5 * (np.sum(self.x_s[i] - self.x_s[j]) ** 2) / length_scale[a])
-                    kern = 1e-10 * np.exp(
+                    kern = self.alpha[a]**2 * np.exp(
                         -0.5 * (np.dot(np.dot(curr_x.T, self.Lambda_inv[a]), curr_x)))
                     K_dim[i][j] = kern
                     K_dim[j][i] = kern
@@ -366,6 +366,8 @@ class PILCO:
         D = self.alpha.shape[0]
 
         R = Sigma_t * (self.Lambda_inv[a] + self.Lambda_inv[b] + np.eye(D))
+        print(Sigma_t[0][0])
+        print(R[0][0])
         R_inv = np.linalg.inv(R)
 
         # calculate Q
@@ -377,7 +379,7 @@ class PILCO:
                 ksi_j = self.x_s[j] - mu_t
                 z_ij = (np.dot(self.Lambda_inv[a], ksi_i) + np.dot(self.Lambda_inv[b], ksi_j)).reshape(-1,1)
 
-                fst = 2*(np.log(1e-10)+np.log(1e-10))
+                fst = 2*(np.log(self.alpha[a])+np.log(self.alpha[b]))
 
                 snd_1 = np.dot(np.dot(ksi_i.T, self.Lambda_inv[a]), ksi_i)
                 snd_2 = np.dot(np.dot(ksi_j.T, self.Lambda_inv[b]), ksi_j)
