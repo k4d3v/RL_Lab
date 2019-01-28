@@ -355,17 +355,32 @@ class PILCO:
         n = len(self.x_s)
         D = self.alpha.shape[0]
 
+        R = Sigma_t * (self.Lambda_inv[a] + self.Lambda_inv[b] + np.eye(D))
+
         # calculate Q
         Q = np.zeros((n, n))
         for i in range(n):
             ksi_i = self.x_s[i] - mu_t
             for j in range(n):
-            
                 # Deisenroth implementation (eq. 2.53)
-                fst = 2*(np.log(self.alpha[a])+np.log(self.alpha[b]))
                 ksi_j = self.x_s[j] - mu_t
-                snd = 0
+                z_ij = np.dot(self.Lambda_inv[a], ksi_i) + np.dot(self.Lambda_inv[b], ksi_j)
+
+                fst = 2*(np.log(self.alpha[a])+np.log(self.alpha[b]))
+
+                snd_1 = np.dot(np.dot(ksi_i.T, self.Lambda_inv[a]), ksi_i)
+                snd_2 = np.dot(np.dot(ksi_j.T, self.Lambda_inv[b]), ksi_j)
+                snd_3 = np.dot((np.dot(z_ij.T, np.linalg.inv(R)) * Sigma_t), z_ij)
+
+                # snd_1 = ksi_i.T * self.Lambda_inv[a] * ksi_i
+                # snd_2 = ksi_j.T * self.Lambda_inv[b] * ksi_j
+                # snd_3 = z_ij.T * np.linalg.inv(R) * Sigma_t * z_ij
+
+                snd = 0.5 * (snd_1 + snd_2 - snd_3)
+
                 nsq = fst-snd
+
+                Q[i][j] = np.exp(nsq)/np.sqrt(np.linalg.det(R))
 
                 """
                 curr_xi = (self.x_s[i] - mu_t).reshape(-1, 1)
