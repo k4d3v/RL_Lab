@@ -131,20 +131,23 @@ class PILCO:
 
                 """ https://pdfs.semanticscholar.org/c9f2/1b84149991f4d547b3f0f625f710750ad8d9.pdf 
                     Page 54(66 of 217)  """
-                I = np.eye(n)
+                I = np.eye(D)
 
                 # TODO: what is C and T? Example see Page 64 (3.71)
                 #C = np.zeros((D, D))  # C is related to l_p, the pendulum length
                 #C = np.array([[1.0, l_p, 0.0], [0.0, 0.0, l_p]])
                 #T_inv = (1 / sigma_c ** 2) * C.T * C
-                T_inv = np.ones((D,D))
+                T_inv = np.eye(D)
 
                 # KIT: (3.46)
                 S = T_inv * np.linalg.inv(I + sigma_t * T_inv)
 
                 # KIT: (3.45)
-                E_x_t = 1 - (1 / np.sqrt(np.linalg.det(I + sigma_t * T_inv))) * np.exp(
+                # TODO: fact is nan; Fix T!
+                fact = 1 / np.sqrt(np.linalg.det(I + sigma_t * T_inv))
+                expo = np.exp(
                     -0.5 * np.dot(np.dot((mu_t - x_target).T,  S), (mu_t - x_target)))
+                E_x_t = 1 - fact * expo
 
                 return E_x_t
 
@@ -169,7 +172,7 @@ class PILCO:
             mu_t_1 = pred_mu[0]
             sigma_t_1 = np.diag([pred_Sigma[0]]*apolicy.s_dim)
             for t in range(n):
-                mu_delta, Sigma_delta = self.approximate_p_delta_t(dyn_model, x_t_1)
+                mu_delta, Sigma_delta, cov = self.approximate_p_delta_t(dyn_model, x_t_1)
                 # under 2.1
                 # (10)
                 mu_t = mu_t_1 + mu_delta
@@ -177,11 +180,9 @@ class PILCO:
                 # TODO: Sigma is not a diagonal matrix!
                 x_t = [np.random.normal(mu_t_1[d], np.diag(sigma_t_1)[d]) for d in range(mu_t_1.shape[0])]
                 x_t = np.array(x_t + list(apolicy.get_action(np.array(x_t))))
-                delta_t = x_t-x_t_1
+                #delta_t = x_t-x_t_1
                 # TODO: Fix (See Deisenroth)
-                xx = np.cov(x_t_1, delta_t)
-                xxx = np.cov(delta_t, x_t_1)
-                sigma_t = sigma_t_1 + Sigma_delta + np.cov(x_t_1, delta_t) + np.cov(delta_t, x_t_1)
+                sigma_t = sigma_t_1 + Sigma_delta + 2*cov
 
                 # (2)
                 Ext_sum += E_x_t(mu_t, sigma_t)
@@ -243,13 +244,14 @@ class PILCO:
         # TODO: Maybe estimate alphas for each dim. in dyn_model
         alpha = np.array([dyn_model.alpha] * D)  # alpha is (1, D) matrix ?
 
+        # TODO: Maybe return diag. matrix Sigma in dyn_model
+        Sigma_t_1 = np.diag(np.array([pred_results[1]] * D))
+
         # calculate q_ai
         for i in range(n):
             # (16)
             v[i] = x_s[i] - pred_results[0]  # x_schlange and mu_schlange in paper, x_schlange is training input,
             # mu_schlange is the mean of the "test" input distribution p(x[t-1],u[t-1])
-            # TODO: Maybe return diag. matrix Sigma in dyn_model
-            Sigma_t_1 = np.diag(np.array([pred_results[1]] * D))
 
             for a in range(D):
                 # (15)
@@ -314,7 +316,20 @@ class PILCO:
                     # (17)=(23)+(20)- mu_delta_a**2
                     Sigma_delta[a][a] = E_var + E_delta_sq - mu_delta[a] ** 2
 
-        return mu_delta, Sigma_delta
+        # Compute covariance matrix (See (12)/ 2.70 Deisenroth)
+        # TODO: Vectorize
+        cov = np.zeros((D,D))
+        for a in range(D):
+            sig_inver = Sigma_t_1*np.linalg.inv(Sigma_t_1+Lambda[a])
+            acol = 0
+            for i in range(n):
+                bq = beta[:, a][i]*q[:, a][i]
+                x_mu = x_s[i]-pred_results[0]
+                prod = np.dot((bq*sig_inver), x_mu)
+                acol += prod
+            cov[:, a] = acol
+
+        return mu_delta, Sigma_delta, cov
 
     def compute_Q(self, alpha, Lambda_inv, a, b, x_s, v, mu_t, Sigma_t):
         """
