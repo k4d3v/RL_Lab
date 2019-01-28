@@ -127,23 +127,23 @@ class PILCO:
                 """
                 start = timer()
 
-                n = dyn_model.N  # input (number of training data points)
                 D = dyn_model.s_dim
 
                 # defined according to the model
-                x_target = np.zeros(D)  # target state
+                x_target = np.zeros(3)  # target state
                 sigma_c = 0.25  # control the width of cost function, top right of page 4
                              # in KIT's paper,sigma_c is represented by a,in the example on page 64, a=  0.25
                 l_p = 0.6413  # pendulum length, l_p = 0.6413 m, see User Manual
 
                 """ https://pdfs.semanticscholar.org/c9f2/1b84149991f4d547b3f0f625f710750ad8d9.pdf 
                     Page 54(66 of 217)  """
-                I = np.eye(D)
+                I = np.eye(3)
 
                 # TODO: what is C and T? Example see Page 64 (3.71)
                 #C = np.zeros((D, D))  # C is related to l_p, the pendulum length
                 #C = np.array([[1.0, l_p, 0.0], [0.0, 0.0, l_p]])
                 #T_inv = (1 / sigma_c ** 2) * C.T * C
+                """
                 T_inv = np.zeros((D,D))
                 T_inv[0][0] = 1
                 T_inv[0][1] = l_p
@@ -151,6 +151,15 @@ class PILCO:
                 T_inv[1][1] = l_p**2
                 T_inv[2][2] = l_p**2
                 T_inv *= sigma_c**(-2)
+                """
+                C = np.mat(np.array([[1, l_p, 0], [0, 0, l_p]]))
+                T_inv = (sigma_c**-2)*C.T*C
+                #T_inv = np.eye(D)
+
+                # Use only first 3 dims
+                mu_t = mu_t[:-2]
+                sigma_t = sigma_t[:-2].T
+                sigma_t = sigma_t[:-2].T
 
                 # KIT: (3.46)
                 S = T_inv * np.linalg.inv(I + sigma_t * T_inv)
@@ -185,7 +194,9 @@ class PILCO:
             x_t_1 = x0
             mu_t_1 = pred_mu[0]
             sigma_t_1 = np.diag([pred_Sigma[0]]*apolicy.s_dim)
-            for t in range(n):
+            for t in range(10):
+                print("Time step ", t)
+
                 mu_delta, Sigma_delta, cov = self.approximate_p_delta_t(dyn_model, x_t_1)
                 # under 2.1
                 # (10)
@@ -267,9 +278,9 @@ class PILCO:
                 # (15)
                 fract = (self.alpha[a] ** 2) / np.sqrt(np.linalg.det(Sigma_t_1 * self.Lambda_inv[a] + np.eye(D)))
                 vi = v[i].reshape(-1, 1)
+                # Sigma[t-1] is variances at time t-1 from GP
                 expo = np.exp(
-                    (-1 / 2) * np.dot(np.dot(vi.T, np.linalg.inv(Sigma_t_1 + self.Lambda[a])),
-                                      vi))  # Sigma[t-1] is variances at time t-1 from GP
+                    (-1 / 2) * np.dot(np.dot(vi.T, np.linalg.inv(Sigma_t_1 + self.Lambda[a])), vi))
                 q[i][a] = fract * expo
 
         # calculate K
@@ -292,7 +303,7 @@ class PILCO:
             K.append(K_dim)
             K_inv.append(np.linalg.inv(K_dim))
 
-        # calculate   beta, under (14)
+        # calculate beta, under (14)
         # calculate mu_delta (14)
         beta = np.zeros((n, D))
         mu_delta = np.zeros(D)
@@ -305,7 +316,6 @@ class PILCO:
         for a in range(D):
             for b in range(D):
                 # Compute Q
-                # TODO: How to use all test data?? (Currently using only first one)
                 Q = self.compute_Q(a, b, v, pred_results[0], np.diag(np.array([pred_results[1]] * D)))
 
                 beta_a = beta[:, a].reshape(-1,1)
@@ -356,31 +366,25 @@ class PILCO:
         D = self.alpha.shape[0]
 
         R = Sigma_t * (self.Lambda_inv[a] + self.Lambda_inv[b] + np.eye(D))
+        R_inv = np.linalg.inv(R)
 
         # calculate Q
-        Q = np.zeros((n, n))
+        Q, Q_old = np.zeros((n, n)),  np.zeros((n, n))
         for i in range(n):
             ksi_i = self.x_s[i] - mu_t
             for j in range(n):
                 # Deisenroth implementation (eq. 2.53)
                 ksi_j = self.x_s[j] - mu_t
-                z_ij = np.dot(self.Lambda_inv[a], ksi_i) + np.dot(self.Lambda_inv[b], ksi_j)
+                z_ij = (np.dot(self.Lambda_inv[a], ksi_i) + np.dot(self.Lambda_inv[b], ksi_j)).reshape(-1,1)
 
-                fst = 2*(np.log(self.alpha[a])+np.log(self.alpha[b]))
+                fst = 2*(np.log(1e-10)+np.log(1e-10))
 
                 snd_1 = np.dot(np.dot(ksi_i.T, self.Lambda_inv[a]), ksi_i)
                 snd_2 = np.dot(np.dot(ksi_j.T, self.Lambda_inv[b]), ksi_j)
-                snd_3 = np.dot((np.dot(z_ij.T, np.linalg.inv(R)) * Sigma_t), z_ij)
-
-                # snd_1 = ksi_i.T * self.Lambda_inv[a] * ksi_i
-                # snd_2 = ksi_j.T * self.Lambda_inv[b] * ksi_j
-                # snd_3 = z_ij.T * np.linalg.inv(R) * Sigma_t * z_ij
+                snd_3 = np.dot(np.dot(np.dot(z_ij.T, R_inv), Sigma_t), z_ij)
 
                 snd = 0.5 * (snd_1 + snd_2 - snd_3)
-
-                nsq = fst-snd
-
-                Q[i][j] = np.exp(nsq)/np.sqrt(np.linalg.det(R))
+                Q[i][j] = np.exp(fst-snd)/np.sqrt(np.linalg.det(R))
 
                 """
                 curr_xi = (self.x_s[i] - mu_t).reshape(-1, 1)
@@ -390,14 +394,13 @@ class PILCO:
                 kern_b = 1e-10 * np.exp(-0.5 * np.dot(np.dot(curr_xj.T, self.Lambda_inv[b]), curr_xj))
 
                 # Compute R
-                R = Sigma_t * (self.Lambda_inv[a] + self.Lambda_inv[b]) + np.eye(D)
                 z_ij = np.dot(self.Lambda_inv[a], v[i].reshape(-1, 1)) + np.dot(self.Lambda_inv[b], v[j].reshape(-1, 1))
                 # (22), Q_ij should be a scalar, Q is a n*n matrix.
                 frac = kern_a * kern_b / np.sqrt(np.linalg.det(R))
-                expo = np.exp(0.5 * np.dot(np.dot(np.dot(z_ij.T, np.linalg.inv(R)), Sigma_t), z_ij))
-                Q[i][j] = frac*expo
+                expo = np.exp(0.5 * np.dot(np.dot(np.dot(z_ij.T, R_inv), Sigma_t), z_ij))
+                Q_old[i][j] = frac*expo
                 """
-        
+
         print("Done estimating Q, ", timer()-start)
         return Q
 
