@@ -359,9 +359,9 @@ class PILCO:
             for j in range(n):
                 curr_xi = (x_s[i] - mu_t).reshape(-1, 1)
                 # x_s is x_schlange in paper,training input
-                kern_a = (alpha[a] ** 2) * np.exp(-0.5 * np.dot(np.dot(curr_xi.T, Lambda_inv[a]), curr_xi))
+                kern_a = 1e-10 * np.exp(-0.5 * np.dot(np.dot(curr_xi.T, Lambda_inv[a]), curr_xi))
                 curr_xj = (x_s[j] - mu_t).reshape(-1, 1)
-                kern_b = (alpha[b] ** 2) * np.exp(-0.5 * np.dot(np.dot(curr_xj.T, Lambda_inv[b]), curr_xj))
+                kern_b = 1e-10 * np.exp(-0.5 * np.dot(np.dot(curr_xj.T, Lambda_inv[b]), curr_xj))
 
                 # Compute R
                 R = Sigma_t * (Lambda_inv[a] + Lambda_inv[b]) + np.eye(D)
