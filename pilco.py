@@ -71,7 +71,9 @@ class PILCO:
             i = 0
             while True:
                 print("Policy search iteration ", i)
-
+                
+                self.prepare(dyn_model)
+                
                 #mu_delta, Sigma_delta = self.approximate_p_delta_t(dyn_model, policy)  # TODO
 
                 # Approx. inference for policy evaluation (Sec. 2.2)
@@ -232,18 +234,17 @@ class PILCO:
     def approximate_p_delta_t(self, dyn_model, x):
         """
         Approximates the predictive t-step distribution
-        :param dyn_model:
-        :param x:
-        :return:
+        :param dyn_model: GP dynamics model
+        :param x: Test input value
+        :return: mu and sigma delta and cov of the predictive distribution
         """
         start = timer()
 
-        # calculate   mu_delta
+        # calculate mu_delta
         # init
         n = dyn_model.N  # input (number of training data points)
         D = dyn_model.s_dim  # s_dim
-        x_s = [ax[:-1] for ax in dyn_model.x]  # Training data
-
+        
         # Predict mu and sigma for all test inputs
         # mu_schlange(t-1) is the mean of the "test" input distribution p(x[t-1],u[t-1])
         pred_mu, pred_Sigma = dyn_model.gp.predict([x], return_std=True)
@@ -252,12 +253,6 @@ class PILCO:
         q = np.zeros((n, D))
         y = np.mat(dyn_model.y)  # output
         v = np.zeros((n, D))
-        length_scale = dyn_model.lambs
-        Lambda = [np.diag(np.array([length_scale[a]] * D)) for a in range(D)]
-        Lambda_inv = [np.linalg.inv(Lamb) for Lamb in Lambda]
-        # alpha = np.ones(1, D)    ### nur fuer test, noch nicht bestimmt
-        # TODO: Maybe estimate alphas for each dim. in dyn_model
-        alpha = np.array([dyn_model.alpha] * D)  # alpha is (1, D) matrix ?
 
         # TODO: Maybe return diag. matrix Sigma in dyn_model
         Sigma_t_1 = np.diag(np.array([pred_results[1]] * D))
@@ -265,55 +260,53 @@ class PILCO:
         # calculate q_ai
         for i in range(n):
             # (16)
-            v[i] = x_s[i] - pred_results[0]  # x_schlange and mu_schlange in paper, x_schlange is training input,
+            v[i] = self.x_s[i] - pred_results[0]  # x_schlange and mu_schlange in paper, x_schlange is training input,
             # mu_schlange is the mean of the "test" input distribution p(x[t-1],u[t-1])
 
             for a in range(D):
                 # (15)
-                fract = (alpha[a] ** 2) / np.sqrt(np.linalg.det(Sigma_t_1 * Lambda_inv[a] + np.eye(D)))
+                fract = (self.alpha[a] ** 2) / np.sqrt(np.linalg.det(Sigma_t_1 * self.Lambda_inv[a] + np.eye(D)))
                 vi = v[i].reshape(-1, 1)
                 expo = np.exp(
-                    (-1 / 2) * np.dot(np.dot(vi.T, np.linalg.inv(Sigma_t_1 + Lambda[a])),
+                    (-1 / 2) * np.dot(np.dot(vi.T, np.linalg.inv(Sigma_t_1 + self.Lambda[a])),
                                       vi))  # Sigma[t-1] is variances at time t-1 from GP
                 q[i][a] = fract * expo
 
         # calculate K
         # TODO: Maybe fix bugs in K computation
-        # Lambda = np.diag(length_scale)
+        # self.Lambda = np.diag(length_scale)
         K, K_inv = [], []  # K for all input und dimension, each term is also a matrix for all input and output
         for a in range(D):
             K_dim = np.ones((n, n))  # K_dim tmp to save the result of every dimension
             for i in range(n):
                 for j in range(i+1, n):
                     # (6)
-                    curr_x = (x_s[i] - x_s[j]).reshape(-1, 1)
-                    # x_s is x_schlange in paper,training input
-                    #kern = (alpha[a] ** 2) * np.exp(-0.5 * ((x_s[i][a] - x_s[j][a]) ** 2) / length_scale[a])
-                    #kern = (alpha[a] ** 2) * np.exp(-0.5 * (np.sum(x_s[i] - x_s[j]) ** 2) / length_scale[a])
+                    curr_x = (self.x_s[i] - self.x_s[j]).reshape(-1, 1)
+                    # self.x_s is x_schlange in paper,training input
+                    #kern = (self.alpha[a] ** 2) * np.exp(-0.5 * ((self.x_s[i][a] - self.x_s[j][a]) ** 2) / length_scale[a])
+                    #kern = (self.alpha[a] ** 2) * np.exp(-0.5 * (np.sum(self.x_s[i] - self.x_s[j]) ** 2) / length_scale[a])
                     kern = 1e-10 * np.exp(
-                        -0.5 * (np.dot(np.dot(curr_x.T, Lambda_inv[a]), curr_x)))
+                        -0.5 * (np.dot(np.dot(curr_x.T, self.Lambda_inv[a]), curr_x)))
                     K_dim[i][j] = kern
                     K_dim[j][i] = kern
             K.append(K_dim)
             K_inv.append(np.linalg.inv(K_dim))
 
         # calculate   beta, under (14)
-        beta = np.zeros((n, D))
-        for a in range(D):
-            beta[:, a] = (K_inv[a] * y[:, a]).reshape(-1, ) # TODO: Fix (Values are too big)
-
         # calculate mu_delta (14)
+        beta = np.zeros((n, D))
         mu_delta = np.zeros(D)
         for a in range(D):
+            beta[:, a] = (K_inv[a] * y[:, a]).reshape(-1, ) # TODO: Fix (Values are too big)
             mu_delta[a] = np.dot(beta[:, a].reshape(-1, 1).T, q[:, a].reshape(-1, 1))
-
+            
         # calculate Sigma_delta
         Sigma_delta = np.zeros((D, D))
         for a in range(D):
             for b in range(D):
                 # Compute Q
                 # TODO: How to use all test data?? (Currently using only first one)
-                Q = self.compute_Q(alpha, Lambda_inv, a, b, x_s, v, pred_results[0], np.diag(np.array([pred_results[1]] * D)))
+                Q = self.compute_Q(a, b, v, pred_results[0], np.diag(np.array([pred_results[1]] * D)))
 
                 beta_a = beta[:, a].reshape(-1,1)
                 beta_b = beta[:, b].reshape(-1,1)
@@ -325,7 +318,7 @@ class PILCO:
                     Sigma_delta[a][b] = E_delta - mu_delta[a] * mu_delta[b]
                 else:
                     # (23)
-                    E_var = alpha[a] ** 2 - np.trace(K_inv[a] * Q)
+                    E_var = self.alpha[a] ** 2 - np.trace(K_inv[a] * Q)
                     # (20)
                     E_delta_sq = np.dot(np.dot(beta_a.T, Q), beta_a)
                     # (17)=(23)+(20)- mu_delta_a**2
@@ -335,11 +328,11 @@ class PILCO:
         # TODO: Vectorize
         cov = np.zeros((D,D))
         for a in range(D):
-            sig_inver = Sigma_t_1*np.linalg.inv(Sigma_t_1+Lambda[a])
+            sig_inver = Sigma_t_1*np.linalg.inv(Sigma_t_1+self.Lambda[a])
             acol = 0
             for i in range(n):
                 bq = beta[:, a][i]*q[:, a][i]
-                x_mu = x_s[i]-pred_results[0]
+                x_mu = self.x_s[i]-pred_results[0]
                 prod = np.dot((bq*sig_inver), x_mu)
                 acol += prod
             cov[:, a] = acol
@@ -347,14 +340,11 @@ class PILCO:
         print("Done approximating mu and sigma delta, ", timer()-start)
         return mu_delta, Sigma_delta, cov
 
-    def compute_Q(self, alpha, Lambda_inv, a, b, x_s, v, mu_t, Sigma_t):
+    def compute_Q(self, a, b, v, mu_t, Sigma_t):
         """
         Computes Q from eq.(22)
-        :param alpha: Alpha GP hyperparam
-        :param Lambda_inv: Contains inverted diagonal matrices for each length scale of the GP
         :param a: Index
         :param b: Index
-        :param x_s: Training inputs
         :param v: v from eq.(16)
         :param mu_t: Predicted mean for t-1
         :param Sigma_t: Predicted Sigma for t-1
@@ -362,26 +352,50 @@ class PILCO:
         """
         start = timer()
 
-        n = len(x_s)
-        D = alpha.shape[0]
+        n = len(self.x_s)
+        D = self.alpha.shape[0]
 
         # calculate Q
         Q = np.zeros((n, n))
         for i in range(n):
+            ksi_i = self.x_s[i] - mu_t
             for j in range(n):
-                curr_xi = (x_s[i] - mu_t).reshape(-1, 1)
-                # x_s is x_schlange in paper,training input
-                kern_a = 1e-10 * np.exp(-0.5 * np.dot(np.dot(curr_xi.T, Lambda_inv[a]), curr_xi))
-                curr_xj = (x_s[j] - mu_t).reshape(-1, 1)
-                kern_b = 1e-10 * np.exp(-0.5 * np.dot(np.dot(curr_xj.T, Lambda_inv[b]), curr_xj))
+            
+                # Deisenroth implementation (eq. 2.53)
+                fst = 2*(np.log(self.alpha[a])+np.log(self.alpha[b]))
+                ksi_j = self.x_s[j] - mu_t
+                snd = 0
+                nsq = fst-snd
+
+                """
+                curr_xi = (self.x_s[i] - mu_t).reshape(-1, 1)
+                # self.x_s is x_schlange in paper,training input
+                kern_a = 1e-10 * np.exp(-0.5 * np.dot(np.dot(curr_xi.T, self.Lambda_inv[a]), curr_xi))
+                curr_xj = (self.x_s[j] - mu_t).reshape(-1, 1)
+                kern_b = 1e-10 * np.exp(-0.5 * np.dot(np.dot(curr_xj.T, self.Lambda_inv[b]), curr_xj))
 
                 # Compute R
-                R = Sigma_t * (Lambda_inv[a] + Lambda_inv[b]) + np.eye(D)
-                z_ij = np.dot(Lambda_inv[a], v[i].reshape(-1, 1)) + np.dot(Lambda_inv[b], v[j].reshape(-1, 1))
+                R = Sigma_t * (self.Lambda_inv[a] + self.Lambda_inv[b]) + np.eye(D)
+                z_ij = np.dot(self.Lambda_inv[a], v[i].reshape(-1, 1)) + np.dot(self.Lambda_inv[b], v[j].reshape(-1, 1))
                 # (22), Q_ij should be a scalar, Q is a n*n matrix.
                 frac = kern_a * kern_b / np.sqrt(np.linalg.det(R))
                 expo = np.exp(0.5 * np.dot(np.dot(np.dot(z_ij.T, np.linalg.inv(R)), Sigma_t), z_ij))
                 Q[i][j] = frac*expo
-
+                """
+        
         print("Done estimating Q, ", timer()-start)
         return Q
+
+    def prepare(self, dyn_model):
+        """
+        Define some important vars
+        :param dyn_model: GP dynamics model
+        """
+        self.D = dyn_model.s_dim
+        length_scale = dyn_model.lambs
+        self.Lambda = [np.diag(np.array([length_scale[a]] * self.D)) for a in range(self.D)]
+        self.Lambda_inv = [np.linalg.inv(Lamb) for Lamb in self.Lambda]
+        # alpha = np.ones(1, D)    ### nur fuer test, noch nicht bestimmt
+        # TODO: Maybe estimate alphas for each dim. in dyn_model
+        self.alpha = np.array([dyn_model.alpha] * self.D)  # alpha is (1, D) matrix ?
+        self.x_s = [ax[:-1] for ax in dyn_model.x]  # Training data
