@@ -124,7 +124,7 @@ class PILCO:
                 D = dyn_model.s_dim
 
                 # defined according to the model
-                x_target = np.zeros(n)  # target state
+                x_target = np.zeros(D)  # target state
                 sigma_c = 0.25  # control the width of cost function, top right of page 4
                              # in KIT's paper,sigma_c is represented by a,in the example on page 64, a=  0.25
                 l_p = 0.6413  # pendulum length, l_p = 0.6413 m, see User Manual
