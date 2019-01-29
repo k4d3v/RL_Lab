@@ -5,6 +5,7 @@ from torch.autograd import Variable, grad
 from torch.distributions import Normal
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RBF
+from matplotlib import pyplot as plt
 
 
 class DynModel:
@@ -198,4 +199,37 @@ class DynModel:
         print("GPML kernel: %s" % gp.kernel_)
         print(gp.kernel_.get_params())
         print("Done fitting GP")
+
+    def plot(self, x_test=None, y_pred=None, sigma=None):
+        # Predict on training inputs
+        if y_pred is None:
+            mu, sig = self.gp.predict(self.x, return_std=True)
+            plt.suptitle("Prediction on Training Data")
+        else:
+            plt.suptitle("Training vs Test")
+
+        # Plot the function, the prediction and the 95% confidence interval based on
+        # the MSE
+        for d in range(self.s_dim):
+            plt.subplot(self.s_dim+1, 1, d+1)
+
+            x_d = np.array([ax[d] for ax in self.x])
+            y_d = np.array([ay[d] for ay in self.y])
+            plt.plot(x_d, y_d, 'r.', markersize=10, label=u'Observations')
+            if not y_pred is None:
+                x_test_d = np.array([x_test[d]])
+                y_pred_d = np.array([y_pred[0][d]])
+                plt.plot(x_d, y_d, 'b-', label=u'Training Data')
+                plt.errorbar(x_test_d.ravel(), y_pred_d, sigma, fmt='r.', markersize=10, label=u'Prediction')
+            else:
+                mu_d = np.array([ay[d] for ay in mu])
+                plt.plot(x_d, mu_d, 'b-', label=u'Prediction')
+                plt.fill(np.concatenate([x_d, x_d[::-1]]),
+                         np.concatenate([mu_d - 1.9600 * sig, (mu_d + 1.9600 * sig)[::-1]]),
+                         alpha=.5, fc='b', ec='None', label='95% confidence interval')
+
+            plt.xlabel("In " +str(d))
+            plt.ylabel("Out "+str(d))
+            plt.legend(loc='lower left')
+        plt.show()
 

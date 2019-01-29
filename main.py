@@ -1,9 +1,9 @@
 """ Main file for testing the PILCO implementation."""
-import random
+import numpy as np
 
 from pilco import PILCO
 
-random.seed(42)
+np.random.seed(42)
 
 env_name = 'CartpoleStabShort-v0'
 

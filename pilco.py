@@ -52,6 +52,8 @@ class PILCO:
             # Learn GP dynamics model using all data (Sec. 2.1)
             dyn_model = DynModel(s_dim, data)
             print("Average GP error: ", dyn_model.training_error_gp())
+            # Plot learnt model
+            dyn_model.plot()
 
             i = 0
             while True:
@@ -163,6 +165,8 @@ class PILCO:
             x0[-1] = apolicy.get_action(x0[:-1])
 
             pred_mu, pred_Sigma = dyn_model.gp.predict([x0], return_std=True)
+            # Plot prediction
+            #dyn_model.plot(x0, pred_mu, pred_Sigma)
 
             # Compute mu_t for t from 1 to n
             # (10)-(12)
@@ -235,6 +239,8 @@ class PILCO:
         # Predict mu and sigma for all test inputs
         # mu_schlange(t-1) is the mean of the "test" input distribution p(x[t-1],u[t-1])
         pred_mu, pred_Sigma = dyn_model.gp.predict([x], return_std=True)
+        # Plot prediction
+        dyn_model.plot(x, pred_mu, pred_Sigma)
         pred_results = (pred_mu[0], pred_Sigma[0])
 
         q = np.zeros((n, D))
