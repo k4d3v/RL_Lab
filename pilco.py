@@ -160,8 +160,9 @@ class PILCO:
             apolicy.assign_Theta(param_array)
 
             # Generate initial test input
+            # TODO: Maybe generate inputs closer to prior distribution (How to get params?)
             x0 = np.random.normal(size=dyn_model.s_dim + 1)
-            # TODO: What actions?? (Maybe get from policy based on the state)
+            # Get action from policy based on the state
             x0[-1] = apolicy.get_action(x0[:-1])
 
             pred_mu, pred_Sigma = dyn_model.gp.predict([x0], return_std=True)
@@ -258,11 +259,10 @@ class PILCO:
 
             for a in range(D):
                 # (15)
-                fract = (self.alpha[a] ** 2) / np.sqrt(np.linalg.det(Sigma_t_1 * self.Lambda_inv[a] + np.eye(D)))
+                fract = (self.alpha ** 2) / np.sqrt(np.linalg.det(Sigma_t_1 * self.Lambda_inv[a] + np.eye(D)))
                 vi = v[i].reshape(-1, 1)
                 # Sigma[t-1] is variances at time t-1 from GP
-                expo = np.exp(
-                    (-1 / 2) * np.dot(np.dot(vi.T, np.linalg.inv(Sigma_t_1 + self.Lambda[a])), vi))
+                expo = np.exp((-1 / 2) * np.dot(np.dot(vi.T, np.linalg.inv(Sigma_t_1 + self.Lambda[a])), vi))
                 q[i][a] = fract * expo
 
         # calculate K
@@ -277,9 +277,8 @@ class PILCO:
                     curr_x = (self.x_s[i] - self.x_s[j]).reshape(-1, 1)
                     # self.x_s is x_schlange in paper,training input
                     #kern = (self.alpha[a] ** 2) * np.exp(-0.5 * ((self.x_s[i][a] - self.x_s[j][a]) ** 2) / length_scale[a])
-                    #kern = (self.alpha[a] ** 2) * np.exp(-0.5 * (np.sum(self.x_s[i] - self.x_s[j]) ** 2) / length_scale[a])
-                    kern = dyn_model.alpha * np.exp(
-                        -0.5 * (np.dot(np.dot(curr_x.T, self.Lambda_inv[a]), curr_x)))
+                    #kern = dyn_model.alpha * np.exp(-0.5 * (np.dot(np.dot(curr_x.T, self.Lambda_inv[a]), curr_x)))
+                    kern = (self.alpha**2) * np.exp(-0.5 * (np.dot(np.dot(curr_x.T, self.Lambda_inv[a]), curr_x)))
                     K_dim[i][j] = kern
                     K_dim[j][i] = kern
             K.append(K_dim)
@@ -310,7 +309,7 @@ class PILCO:
                     Sigma_delta[a][b] = E_delta - mu_delta[a] * mu_delta[b]
                 else:
                     # (23)
-                    E_var = dyn_model.alpha ** 2 - np.trace(K_inv[a] * Q)
+                    E_var = self.alpha ** 2 - np.trace(K_inv[a] * Q)
                     # (20)
                     E_delta_sq = np.dot(np.dot(beta_a.T, Q), beta_a)
                     # (17)=(23)+(20)- mu_delta_a**2
@@ -345,7 +344,7 @@ class PILCO:
         start = timer()
 
         n = len(self.x_s)
-        D = self.alpha.shape[0]
+        D = len(self.x_s[0])
 
         R = Sigma_t * (self.Lambda_inv[a] + self.Lambda_inv[b] + np.eye(D))
         print(Sigma_t[0][0])
@@ -353,7 +352,8 @@ class PILCO:
         R_inv = np.linalg.inv(R)
 
         # calculate Q
-        Q, Q_old = np.zeros((n, n)),  np.zeros((n, n))
+        Q = np.zeros((n, n))
+        #Q_old = np.zeros((n, n))
         for i in range(n):
             ksi_i = self.x_s[i] - mu_t
             for j in range(n):
@@ -361,7 +361,7 @@ class PILCO:
                 ksi_j = self.x_s[j] - mu_t
                 z_ij = (np.dot(self.Lambda_inv[a], ksi_i) + np.dot(self.Lambda_inv[b], ksi_j)).reshape(-1,1)
 
-                fst = 2*(np.log(1e-5)+np.log(1e-5))
+                fst = 2*(np.log(self.alpha)+np.log(self.alpha))
 
                 snd_1 = np.dot(np.dot(ksi_i.T, self.Lambda_inv[a]), ksi_i)
                 snd_2 = np.dot(np.dot(ksi_j.T, self.Lambda_inv[b]), ksi_j)
@@ -397,5 +397,5 @@ class PILCO:
         length_scale = dyn_model.lambs
         self.Lambda = [np.diag(np.array([length_scale[a]] * self.D)) for a in range(self.D)]
         self.Lambda_inv = [np.linalg.inv(Lamb) for Lamb in self.Lambda]
-        self.alpha = np.array([1] * self.D)  # alpha is (1, D) matrix ?
+        self.alpha = 1  # alpha is (1, D) matrix ?
         self.x_s = [ax[:-1] for ax in dyn_model.x]  # Training data
