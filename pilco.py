@@ -169,10 +169,10 @@ class PILCO:
             # Plot prediction
             #dyn_model.plot(x0, pred_mu, pred_Sigma)
 
-            # Compute mu_t for t from 1 to n
+            # Compute mu_t for t from 1 to T
             # (10)-(12)
             x_t_1 = x0
-            mu_t_1 = pred_mu[0]
+            mu_t_1 = x0[:-1]+pred_mu[0]
             sigma_t_1 = np.diag([pred_Sigma[0]]*apolicy.s_dim)
             for t in range(3):
                 print("Time step ", t)
@@ -181,12 +181,14 @@ class PILCO:
                 # under 2.1
                 # (10)
                 mu_t = mu_t_1 + mu_delta
+
                 # (11)
-                # TODO: Sigma is not a diagonal matrix!
-                x_t = [np.random.normal(mu_t_1[d], np.diag(sigma_t_1)[d]) for d in range(mu_t_1.shape[0])]
-                x_t = np.array(x_t + list(apolicy.get_action(np.array(x_t))))
                 # TODO: Fix (See Deisenroth)
-                sigma_t = sigma_t_1 + Sigma_delta + 2*cov
+                sigma_t = sigma_t_1 + Sigma_delta + 2 * cov
+
+                # TODO: Sigma is not a diagonal matrix!
+                x_t = [np.random.normal(mu_t[d], np.diag(sigma_t)[d]) for d in range(mu_t.shape[0])]
+                x_t = np.array(x_t + list(apolicy.get_action(np.array(x_t))))
 
                 # (2)
                 Ext_sum += E_x_t(mu_t, sigma_t)
@@ -240,9 +242,10 @@ class PILCO:
         # Predict mu and sigma for all test inputs
         # mu_schlange(t-1) is the mean of the "test" input distribution p(x[t-1],u[t-1])
         pred_mu, pred_Sigma = dyn_model.gp.predict([x], return_std=True)
+        pred_results = (x[:-1]+pred_mu[0], pred_Sigma[0])
+
         # Plot prediction
         dyn_model.plot(x, pred_mu, pred_Sigma)
-        pred_results = (pred_mu[0], pred_Sigma[0])
 
         q = np.zeros((n, D))
         y = np.mat(dyn_model.y)  # output
@@ -282,7 +285,7 @@ class PILCO:
                     K_dim[i][j] = kern
                     K_dim[j][i] = kern
             K.append(K_dim)
-            K_inv.append(np.linalg.inv(K_dim))
+            K_inv.append(np.linalg.inv(K_dim+dyn_model.alpha*np.eye(n)))
 
         # calculate beta, under (14)
         # calculate mu_delta (14)
@@ -302,18 +305,16 @@ class PILCO:
                 beta_a = beta[:, a].reshape(-1,1)
                 beta_b = beta[:, b].reshape(-1,1)
 
+                # (20)
+                E_delta = np.dot(np.dot(beta_a.T, Q), beta_b) # TODO: Too big
                 if a != b:
-                    # (20)
-                    E_delta = np.dot(np.dot(beta_a.T, Q), beta_b)
                     # (18) = (20)- mu_delta_a*mu_delta_b
                     Sigma_delta[a][b] = E_delta - mu_delta[a] * mu_delta[b]
                 else:
                     # (23)
-                    E_var = self.alpha ** 2 - np.trace(K_inv[a] * Q)
-                    # (20)
-                    E_delta_sq = np.dot(np.dot(beta_a.T, Q), beta_a)
+                    E_var = self.alpha ** 2 - np.trace(K_inv[a] * Q) # TODO: Too small
                     # (17)=(23)+(20)- mu_delta_a**2
-                    Sigma_delta[a][a] = E_var + E_delta_sq - mu_delta[a] ** 2
+                    Sigma_delta[a][a] = E_var + E_delta - mu_delta[a] ** 2
 
         # Compute covariance matrix (See (12)/ 2.70 Deisenroth)
         # TODO: Vectorize
@@ -350,6 +351,7 @@ class PILCO:
         print(Sigma_t[0][0])
         print(R[0][0])
         R_inv = np.linalg.inv(R)
+        detsqrt = np.sqrt(np.linalg.det(R))
 
         # calculate Q
         Q = np.zeros((n, n))
@@ -368,19 +370,19 @@ class PILCO:
                 snd_3 = np.dot(np.dot(np.dot(z_ij.T, R_inv), Sigma_t), z_ij)
 
                 snd = 0.5 * (snd_1 + snd_2 - snd_3)
-                Q[i][j] = np.exp(fst-snd)/np.sqrt(np.linalg.det(R))
+                Q[i][j] = np.exp(fst-snd)/detsqrt
 
                 """
                 curr_xi = (self.x_s[i] - mu_t).reshape(-1, 1)
                 # self.x_s is x_schlange in paper,training input
-                kern_a = 1e-10 * np.exp(-0.5 * np.dot(np.dot(curr_xi.T, self.Lambda_inv[a]), curr_xi))
+                kern_a = (self.alpha**2) * np.exp(-0.5 * np.dot(np.dot(curr_xi.T, self.Lambda_inv[a]), curr_xi))
                 curr_xj = (self.x_s[j] - mu_t).reshape(-1, 1)
-                kern_b = 1e-10 * np.exp(-0.5 * np.dot(np.dot(curr_xj.T, self.Lambda_inv[b]), curr_xj))
+                kern_b = (self.alpha**2) * np.exp(-0.5 * np.dot(np.dot(curr_xj.T, self.Lambda_inv[b]), curr_xj))
 
                 # Compute R
                 z_ij = np.dot(self.Lambda_inv[a], v[i].reshape(-1, 1)) + np.dot(self.Lambda_inv[b], v[j].reshape(-1, 1))
                 # (22), Q_ij should be a scalar, Q is a n*n matrix.
-                frac = kern_a * kern_b / np.sqrt(np.linalg.det(R))
+                frac = kern_a * kern_b / detsqrt
                 expo = np.exp(0.5 * np.dot(np.dot(np.dot(z_ij.T, R_inv), Sigma_t), z_ij))
                 Q_old[i][j] = frac*expo
                 """
