@@ -61,6 +61,7 @@ class Policy():
         traj = []
 
         while not done:
+            # Show environment
             #self.env.render()
             point = []
 
@@ -86,7 +87,6 @@ class Policy():
         """
         # TODO: Transform policy params into right data structure
         init = self.param_array()
-        #init = np.array([0,0,0])
         #new_Theta = minimize(J, init, method='L-BFGS-B', jac=dJ, options={'disp': True}).x
         new_Theta = minimize(J, init, method='L-BFGS-B', options={'disp': True}).x
         self.assign_Theta(new_Theta)
@@ -97,7 +97,7 @@ class Policy():
         :param old_Theta: Old params
         :return: True if convergence
         """
-        return False
+        return True
 
     def param_array(self):
         """

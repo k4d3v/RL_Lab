@@ -35,46 +35,30 @@ class PILCO:
         # Dimension of states
         s_dim = env.observation_space.shape[0]
 
-        while True:
+        # Initial J random rollouts
+        data = []
+        old_policy, policy = Policy(env), Policy(env)
+        for j in range(self.J):
+            # Sample controller params
+            policy = Policy(env)
 
-            try:
-                # Initial J random rollouts
-                data = []
-                old_policy, policy = Policy(env), Policy(env)
-                for j in range(self.J):
-                    # Sample controller params
-                    policy = Policy(env)
-
-                    # Apply random control signals and record data
-                    data.append(policy.rollout())
-
-                # dyn_model = DynModel(s_dim, data)
-                # print("Average GP error before optimizing the hyperparams: ", dyn_model.training_error())
-
-                # Learn hyperparams for dynamics GP
-                # lambs = dyn_model.estimate_hyperparams()
-                break
-            except ValueError:
-                print("Oops, some stupid numerical problem. Trying again...")
+            # Apply random control signals and record data
+            data.append(policy.rollout())
 
         # Controlled learning (N iterations)
         for n in range(self.N):
             print("Round ", n)
 
             # Learn GP dynamics model using all data (Sec. 2.1)
-            #lambs = [1]*(s_dim+1)
-            #dyn_model = DynModel(s_dim, data, lambs)
-            #print("Average GP error: ", dyn_model.training_error())
             dyn_model = DynModel(s_dim, data)
             print("Average GP error: ", dyn_model.training_error_gp())
 
             i = 0
             while True:
                 print("Policy search iteration ", i)
-                
+
+                # Store some vars for convenience
                 self.prepare(dyn_model)
-                
-                #mu_delta, Sigma_delta = self.approximate_p_delta_t(dyn_model, policy)  # TODO
 
                 # Approx. inference for policy evaluation (Sec. 2.2)
                 # Get J^pi(policy) (10-12), (24)
@@ -85,7 +69,6 @@ class PILCO:
                 # TODO: Torch gradient
                 dJ = self.get_dJ(policy)
 
-                # Learn policy
                 # Update policy (CG or L-BFGS)
                 policy.update(J, dJ)  # TODO
 
@@ -101,9 +84,6 @@ class PILCO:
             new_data = policy.rollout()
             data.append(new_data)
 
-            # Convergence check
-            # TODO
-
         print("Training done, ", timer()-start)
         return policy
 
@@ -115,19 +95,20 @@ class PILCO:
         """
         def J(param_array):
             """
+            A function which computes the expected return for a policy
             :param param_array: Current policy params
             :return: expected return
             """
             astart = timer()
+
             def E_x_t(mu_t, sigma_t):
                 """
-                :param mu_t:
-                :param sigma_t:
+                Computes the expected return for specific mu and sigma for a time step
+                :param mu_t: Mean at time step t
+                :param sigma_t: Sigma at time step t
                 :return: E_x_t : expected return at t
                 """
                 start = timer()
-
-                D = dyn_model.s_dim
 
                 # defined according to the model
                 x_target = np.zeros(3)  # target state
@@ -140,9 +121,6 @@ class PILCO:
                 I = np.eye(3)
 
                 # TODO: what is C and T? Example see Page 64 (3.71)
-                #C = np.zeros((D, D))  # C is related to l_p, the pendulum length
-                #C = np.array([[1.0, l_p, 0.0], [0.0, 0.0, l_p]])
-                #T_inv = (1 / sigma_c ** 2) * C.T * C
                 """
                 T_inv = np.zeros((D,D))
                 T_inv[0][0] = 1
@@ -167,15 +145,13 @@ class PILCO:
                 # KIT: (3.45)
                 # TODO: fact is nan; Fix T!
                 fact = 1 / np.sqrt(np.linalg.det(I + sigma_t * T_inv))
-                expo = np.exp(
-                    -0.5 * np.dot(np.dot((mu_t - x_target).T,  S), (mu_t - x_target)))
+                expo = np.exp(-0.5 * np.dot(np.dot((mu_t - x_target).T,  S), (mu_t - x_target)))
                 E_x_t = 1 - fact * expo
 
                 print("Ext done", timer()-start)
                 return E_x_t
 
             Ext_sum = 0
-            n = dyn_model.N
 
             # Reconstruct policy
             apolicy = Policy(self.env)
@@ -184,7 +160,6 @@ class PILCO:
             # Generate initial test input
             x0 = np.random.normal(size=dyn_model.s_dim + 1)
             # TODO: What actions?? (Maybe get from policy based on the state)
-            # mu_x[-1] = dyn_model.x[ax][-1]
             x0[-1] = apolicy.get_action(x0[:-1])
 
             pred_mu, pred_Sigma = dyn_model.gp.predict([x0], return_std=True)
@@ -205,7 +180,6 @@ class PILCO:
                 # TODO: Sigma is not a diagonal matrix!
                 x_t = [np.random.normal(mu_t_1[d], np.diag(sigma_t_1)[d]) for d in range(mu_t_1.shape[0])]
                 x_t = np.array(x_t + list(apolicy.get_action(np.array(x_t))))
-                #delta_t = x_t-x_t_1
                 # TODO: Fix (See Deisenroth)
                 sigma_t = sigma_t_1 + Sigma_delta + 2*cov
 
@@ -220,6 +194,7 @@ class PILCO:
             print("J done, ", timer()-astart)
             return Ext_sum
 
+        # Return the function for computing the expected returns
         return J
 
     def get_dJ(self, policy):
@@ -240,6 +215,7 @@ class PILCO:
             dExt = grad(Ext, policy.Theta)
             return dExt
 
+        # Return the function for computing the gradients
         return dJ
 
     def approximate_p_delta_t(self, dyn_model, x):
@@ -415,7 +391,5 @@ class PILCO:
         length_scale = dyn_model.lambs
         self.Lambda = [np.diag(np.array([length_scale[a]] * self.D)) for a in range(self.D)]
         self.Lambda_inv = [np.linalg.inv(Lamb) for Lamb in self.Lambda]
-        # alpha = np.ones(1, D)    ### nur fuer test, noch nicht bestimmt
-        # TODO: Maybe estimate alphas for each dim. in dyn_model
         self.alpha = np.array([1] * self.D)  # alpha is (1, D) matrix ?
         self.x_s = [ax[:-1] for ax in dyn_model.x]  # Training data
