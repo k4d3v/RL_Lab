@@ -191,9 +191,9 @@ class DynModel:
         """
         Fits a sklearn GP based on the training data
         """
-        kern = self.alpha * RBF(length_scale=[1] * (self.s_dim + 1), length_scale_bounds=np.array([1e-10, 1])) \
+        kern = self.alpha**2 * RBF(length_scale=[0.1] * (self.s_dim + 1), length_scale_bounds=np.array([1e-10, 1])) \
                + WhiteKernel()
-        gp = GaussianProcessRegressor(kern)
+        gp = GaussianProcessRegressor(kernel=kern, n_restarts_optimizer=10)
         gp.fit(self.x, self.y)
         # self.lambs = gp.kernel_.get_params()["length_scale"]
         opti_params = gp.kernel_.get_params()
