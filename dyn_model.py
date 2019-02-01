@@ -4,7 +4,7 @@ from scipy.optimize import minimize
 from torch.autograd import Variable, grad
 from torch.distributions import Normal
 from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import RBF
+from sklearn.gaussian_process.kernels import RBF, WhiteKernel
 from matplotlib import pyplot as plt
 
 
@@ -12,6 +12,7 @@ class DynModel:
     """
     Gaussian Process with a squared exponential kernel for learning the system dynamics
     """
+
     def __init__(self, s_dim, data, lambs=None, beta=0.0001):
         """
         :param s_dim: Dimension of states
@@ -28,7 +29,7 @@ class DynModel:
         self.alpha = 1
         self.beta = beta
 
-        self.mean = [] # TODO: Compute (?)
+        self.mean = []  # TODO: Compute (?)
         self.cov_f = self.squared_expo_kernel
         self.setup_sigma()
         self.fit_gp()
@@ -42,8 +43,8 @@ class DynModel:
         :param lambs: Custom length-scales (l^2)
         """
         if lambs is None:
-            lambs = np.array([self.s_dim+1]*(self.s_dim+1))
-        return (self.alpha**2)*np.exp(-1 / 2.0 * np.sum(np.power((x - y), 2)/lambs))
+            lambs = np.array([self.s_dim + 1] * (self.s_dim + 1))
+        return (self.alpha ** 2) * np.exp(-1 / 2.0 * np.sum(np.power((x - y), 2) / lambs))
 
     def calculate_sigma(self, x, cov_f, lambs=None):
         """
@@ -90,7 +91,7 @@ class DynModel:
         m_expt = (k_xX.T * sigmaI) * np.mat(self.y)
         # sigma_expt = k_xx - (k_xX.T * np.mat(self.sigma).I) * k_xX
         sigma_expt = k_xx + self.beta - (k_xX.T * sigmaI) * k_xX
-        return np.array(m_expt).reshape(-1,), np.array(sigma_expt).reshape(-1,)
+        return np.array(m_expt).reshape(-1, ), np.array(sigma_expt).reshape(-1, )
 
     def prepare_data(self, data):
         """
@@ -100,10 +101,10 @@ class DynModel:
         """
         x, y = [], []
         for traj in data:
-            for p in range(len(traj)-1):
+            for p in range(len(traj) - 1):
                 # Join state and action
                 x.append(np.concatenate((traj[p][0], traj[p][1])))
-                y.append(traj[p+1][0]-traj[p][0])
+                y.append(traj[p + 1][0] - traj[p][0])
         return x, y
 
     def estimate_hyperparams(self):
@@ -111,7 +112,7 @@ class DynModel:
         Estimates the optimal length-scales for the kernel by maximizing the marginal log-likelihood
         :return: optimal length-scales
         """
-        sig_n = 0.1**2 # TODO: Is it really needed?
+        sig_n = 0.1 ** 2  # TODO: Is it really needed?
         y = np.mat(self.y)
         n = self.sigma.shape[0]
 
@@ -125,10 +126,10 @@ class DynModel:
             log_prob = []
             # Compute mll for each dimension
             for d in range(self.s_dim):
-                data_fit = (-1/2)*y[:,d].T*KI*y[:,d]
-                det = (1/2)*np.log(np.linalg.det(K))
-                norm = -(n/2)*np.log(2*np.pi)
-                log_prob.append(data_fit-det-norm)
+                data_fit = (-1 / 2) * y[:, d].T * KI * y[:, d]
+                det = (1 / 2) * np.log(np.linalg.det(K))
+                norm = -(n / 2) * np.log(2 * np.pi)
+                log_prob.append(data_fit - det - norm)
             return np.mean(log_prob)
 
         """
@@ -158,10 +159,10 @@ class DynModel:
             """
 
         # Optimize marginal ll
-        init = [1]*(self.s_dim+1)
-        bounds = [(1e-9, None)]*(self.s_dim+1)
+        init = [1] * (self.s_dim + 1)
+        bounds = [(1e-9, None)] * (self.s_dim + 1)
         # TODO: Does minimization work right though?
-        optimal_lambs = minimize(mll, init, method='L-BFGS-B', bounds=bounds, options = {'disp': True}).x
+        optimal_lambs = minimize(mll, init, method='L-BFGS-B', bounds=bounds, options={'disp': True}).x
         return optimal_lambs
 
     def training_error(self):
@@ -173,7 +174,7 @@ class DynModel:
         for din, dout in zip(self.x, self.y):
             m, sig = self.predict(din)
             err.append(np.abs(dout - m))
-        return np.sum(err)/len(self.x)
+        return np.sum(err) / len(self.x)
 
     def training_error_gp(self):
         """
@@ -184,17 +185,21 @@ class DynModel:
         m = self.gp.predict(self.x)
         for i, dout in zip(range(len(self.x)), self.y):
             err.append(np.abs(dout - m[i]))
-        return np.sum(err)/len(self.x)
+        return np.sum(err) / len(self.x)
 
     def fit_gp(self):
         """
         Fits a sklearn GP based on the training data
         """
-        kern = RBF(length_scale=[1]*(self.s_dim+1))
+        kern = self.alpha * RBF(length_scale=[1] * (self.s_dim + 1), length_scale_bounds=np.array([1e-10, 1])) \
+               + WhiteKernel()
         gp = GaussianProcessRegressor(kern)
         gp.fit(self.x, self.y)
-        self.lambs = gp.kernel_.get_params()["length_scale"]
-        self.alpha = gp.alpha
+        # self.lambs = gp.kernel_.get_params()["length_scale"]
+        opti_params = gp.kernel_.get_params()
+        self.alpha = np.sqrt(opti_params["k1"].k1.constant_value)
+        self.lambs = opti_params["k1"].k2.length_scale
+        self.noise = opti_params["k2"].noise_level
         self.gp = gp
         print("GPML kernel: %s" % gp.kernel_)
         print(gp.kernel_.get_params())
@@ -211,7 +216,7 @@ class DynModel:
         # Plot the function, the prediction and the 95% confidence interval based on
         # the MSE
         for d in range(self.s_dim):
-            plt.subplot(self.s_dim+1, 1, d+1)
+            plt.subplot(self.s_dim + 1, 1, d + 1)
 
             x_d = np.array([ax[d] for ax in self.x])
             y_d = np.array([ay[d] for ay in self.y])
@@ -220,7 +225,7 @@ class DynModel:
                 x_test_d = np.array([x_test[d]])
                 y_pred_d = np.array([y_pred[0][d]])
                 plt.plot(x_d, y_d, 'b-', label=u'Training Data')
-                plt.errorbar(x_test_d.ravel(), y_pred_d, sigma, fmt='r.', markersize=10, label=u'Prediction')
+                plt.errorbar(x_test_d.ravel(), y_pred_d, sigma, fmt='g.', markersize=10, label=u'Prediction')
             else:
                 mu_d = np.array([ay[d] for ay in mu])
                 plt.plot(x_d, mu_d, 'b-', label=u'Prediction')
@@ -228,8 +233,7 @@ class DynModel:
                          np.concatenate([mu_d - 1.9600 * sig, (mu_d + 1.9600 * sig)[::-1]]),
                          alpha=.5, fc='b', ec='None', label='95% confidence interval')
 
-            plt.xlabel("In " +str(d))
-            plt.ylabel("Out "+str(d))
+            plt.xlabel("In " + str(d))
+            plt.ylabel("Out " + str(d))
             plt.legend(loc='lower left')
         plt.show()
-

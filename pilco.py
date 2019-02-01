@@ -160,10 +160,14 @@ class PILCO:
             apolicy.assign_Theta(param_array)
 
             # Generate initial test input
-            # TODO: Maybe generate inputs closer to prior distribution (How to get params?)
-            x0 = np.random.normal(size=dyn_model.s_dim + 1)
+            # Generate input close to prior distribution
+            mean_samp = np.mean(self.x_s, axis=0)
+            std_samp = np.std(self.x_s, axis=0)
+            x0 = np.random.multivariate_normal(mean_samp, np.diag(std_samp))
             # Get action from policy based on the state
-            x0[-1] = apolicy.get_action(x0[:-1])
+            lx0 = list(x0)
+            lx0.append(apolicy.get_action(x0))
+            x0 = np.array(lx0)
 
             pred_mu, pred_Sigma = dyn_model.gp.predict([x0], return_std=True)
             # Plot prediction
@@ -273,19 +277,19 @@ class PILCO:
         # self.Lambda = np.diag(length_scale)
         K, K_inv = [], []  # K for all input und dimension, each term is also a matrix for all input and output
         for a in range(D):
-            K_dim = np.ones((n, n))  # K_dim tmp to save the result of every dimension
+            K_dim = np.full((n, n), self.alpha)  # K_dim tmp to save the result of every dimension
             for i in range(n):
                 for j in range(i+1, n):
                     # (6)
                     curr_x = (self.x_s[i] - self.x_s[j]).reshape(-1, 1)
                     # self.x_s is x_schlange in paper,training input
                     #kern = (self.alpha[a] ** 2) * np.exp(-0.5 * ((self.x_s[i][a] - self.x_s[j][a]) ** 2) / length_scale[a])
-                    #kern = dyn_model.alpha * np.exp(-0.5 * (np.dot(np.dot(curr_x.T, self.Lambda_inv[a]), curr_x)))
+                    #kern = self.alpha * np.exp(-0.5 * (np.dot(np.dot(curr_x.T, self.Lambda_inv[a]), curr_x)))
                     kern = (self.alpha**2) * np.exp(-0.5 * (np.dot(np.dot(curr_x.T, self.Lambda_inv[a]), curr_x)))
                     K_dim[i][j] = kern
                     K_dim[j][i] = kern
             K.append(K_dim)
-            K_inv.append(np.linalg.inv(K_dim+dyn_model.alpha*np.eye(n)))
+            K_inv.append(np.linalg.inv(K_dim+dyn_model.noise*np.eye(n)))
 
         # calculate beta, under (14)
         # calculate mu_delta (14)
@@ -312,7 +316,7 @@ class PILCO:
                     Sigma_delta[a][b] = E_delta - mu_delta[a] * mu_delta[b]
                 else:
                     # (23)
-                    E_var = self.alpha ** 2 - np.trace(K_inv[a] * Q) # TODO: Too small
+                    E_var = (self.alpha ** 2) - np.trace(K_inv[a] * Q) + dyn_model.noise # TODO: Too small
                     # (17)=(23)+(20)- mu_delta_a**2
                     Sigma_delta[a][a] = E_var + E_delta - mu_delta[a] ** 2
 
@@ -330,6 +334,8 @@ class PILCO:
             cov[:, a] = acol
 
         print("Done approximating mu and sigma delta, ", timer()-start)
+        # Compute eigenvals for debugging
+        ew, _ = np.linalg.eig(Sigma_delta)
         return mu_delta, Sigma_delta, cov
 
     def compute_Q(self, a, b, v, mu_t, Sigma_t):
@@ -358,7 +364,7 @@ class PILCO:
         #Q_old = np.zeros((n, n))
         for i in range(n):
             ksi_i = self.x_s[i] - mu_t
-            for j in range(n):
+            for j in range(i, n):
                 # Deisenroth implementation (eq. 2.53)
                 ksi_j = self.x_s[j] - mu_t
                 z_ij = (np.dot(self.Lambda_inv[a], ksi_i) + np.dot(self.Lambda_inv[b], ksi_j)).reshape(-1,1)
@@ -370,7 +376,9 @@ class PILCO:
                 snd_3 = np.dot(np.dot(np.dot(z_ij.T, R_inv), Sigma_t), z_ij)
 
                 snd = 0.5 * (snd_1 + snd_2 - snd_3)
-                Q[i][j] = np.exp(fst-snd)/detsqrt
+                entry = np.exp(fst-snd)/detsqrt
+                Q[i][j] = entry
+                Q[j][i] = entry
 
                 """
                 curr_xi = (self.x_s[i] - mu_t).reshape(-1, 1)
@@ -399,5 +407,5 @@ class PILCO:
         length_scale = dyn_model.lambs
         self.Lambda = [np.diag(np.array([length_scale[a]] * self.D)) for a in range(self.D)]
         self.Lambda_inv = [np.linalg.inv(Lamb) for Lamb in self.Lambda]
-        self.alpha = 1  # alpha is (1, D) matrix ?
+        self.alpha = dyn_model.alpha
         self.x_s = [ax[:-1] for ax in dyn_model.x]  # Training data
