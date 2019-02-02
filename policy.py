@@ -93,10 +93,10 @@ class Policy():
         :param J: Function for computing the expected return
         :param dJ: Function for computing the gradient of the expected return
         """
-        # TODO: Transform policy params into right data structure
         init = self.param_array()
         #new_Theta = minimize(J, init, method='L-BFGS-B', jac=dJ, options={'disp': True}).x
         new_Theta = minimize(J, init, method='L-BFGS-B', options={'disp': True}).x
+        print("Optimization of policy params done.")
         self.assign_Theta(new_Theta)
 
     def check_convergence(self, old_Theta):

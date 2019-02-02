@@ -114,7 +114,7 @@ class PILCO:
                 :param sigma_t: Sigma at time step t
                 :return: E_x_t : expected return at t
                 """
-                start = timer()
+                #start = timer()
 
                 # defined according to the model
                 x_target = np.zeros(3)  # target state
@@ -154,7 +154,7 @@ class PILCO:
                 expo = np.exp(-0.5 * np.dot(np.dot((mu_t - x_target).T, S), (mu_t - x_target)))
                 E_x_t = 1 - fact * expo
 
-                print("Ext done", timer() - start)
+                #print("Ext done", timer() - start)
                 return E_x_t
 
             Ext_sum = 0
@@ -193,7 +193,6 @@ class PILCO:
 
                 # (11)
                 # TODO: Fix (See Deisenroth)
-                xx = cov+cov.T
                 sigma_t = sigma_t_1 + Sigma_delta + cov+cov.T
                 # Compute eigenvalues (for debugging)
                 ew,_ = np.linalg.eig(sigma_t)
@@ -363,7 +362,7 @@ class PILCO:
         :param Sigma_t: Predicted Sigma for t-1
         :return: n x n matrix Q
         """
-        start = timer()
+        #start = timer()
 
         n = len(self.x_s)
         D = len(self.x_s[0])
@@ -409,7 +408,7 @@ class PILCO:
                 Q_old[i][j] = frac*expo
                 """
 
-        print("Done estimating Q, ", timer() - start)
+        #print("Done estimating Q, ", timer() - start)
         return Q
 
     def prepare(self, dyn_model):
