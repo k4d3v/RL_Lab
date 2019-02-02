@@ -2,6 +2,7 @@ import numpy as np
 from timeit import default_timer as timer
 import torch
 from scipy.optimize import minimize
+from torch.autograd import Variable
 
 
 class Policy():
@@ -18,10 +19,9 @@ class Policy():
         self.s_dim = self.env.observation_space.shape[0]
         self.n_basis = n_basis
         # Init. random control param.s
-        # TODO: Torch gradientable
-        W = np.random.normal(size=(self.n_basis))
-        Lamb = np.eye(self.s_dim)
-        Mu = np.random.normal(size=(self.n_basis, self.s_dim))
+        W = Variable(torch.rand(self.n_basis), requires_grad=True)
+        Lamb = Variable(torch.Tensor(np.eye(self.s_dim)), requires_grad=True)
+        Mu = Variable(torch.rand(self.n_basis, self.s_dim), requires_grad=True)
         self.Theta = {"W": W, "Lamb": Lamb, "Mu": Mu}
 
     def get_action(self, x):
@@ -32,7 +32,7 @@ class Policy():
         """
         sum = 0
         for i in range(self.n_basis):
-            sum += self.Theta["W"][i]*self.calc_feature(x, i)
+            sum += self.Theta["W"].detach().numpy()[i]*self.calc_feature(x, i)
         return np.array([sum])
 
     def calc_feature(self, x, i):
@@ -42,9 +42,10 @@ class Policy():
         :param i: Number of current basis function
         :return: phi_i(x)
         """
-        phi_x = np.exp(-0.5*
-                       np.dot(np.dot(np.transpose(x-self.Theta["Mu"][i]).T, np.linalg.inv(self.Theta["Lamb"])),
-                              (x-self.Theta["Mu"][i])))
+        phi_x = np.exp(
+            -0.5*np.dot(np.dot(np.transpose(x-self.Theta["Mu"].detach().numpy()[i]).T,
+                               np.linalg.inv(self.Theta["Lamb"].detach().numpy())),
+                        (x-self.Theta["Mu"].detach().numpy()[i])))
         return phi_x
 
     def rollout(self):
@@ -113,6 +114,7 @@ class Policy():
         :return: np array with the policy params
         """
         pl = list(self.Theta.values())
+        pl = [p.detach().numpy() for p in pl]
         # Store only diagonal of Lambda
         pl[1] = np.diag(pl[1])
         params = [list(param.flatten()) for param in pl]
@@ -132,6 +134,6 @@ class Policy():
         Mu = Mu.reshape(self.n_basis, self.s_dim)
 
         # Assign policy params
-        self.Theta["W"] = W
-        self.Theta["Lamb"] = Lamb
-        self.Theta["Mu"] = Mu
+        self.Theta["W"] = Variable(torch.Tensor(W), requires_grad=True)
+        self.Theta["Lamb"] = Variable(torch.Tensor(Lamb), requires_grad=True)
+        self.Theta["Mu"] = Variable(torch.Tensor(Mu), requires_grad=True)

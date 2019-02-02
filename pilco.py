@@ -3,7 +3,8 @@ http://www.icml-2011.org/papers/323_icmlpaper.pdf"""
 import gym
 import quanser_robots
 import numpy as np
-from torch.autograd import grad
+import torch
+from torch.autograd import grad, Variable
 from timeit import default_timer as timer
 
 from policy import Policy
@@ -72,7 +73,7 @@ class PILCO:
                 # Policy improvement based on the gradient (Sec. 2.3)
                 # Get the gradient of J (26-30)
                 # TODO: Torch gradient
-                dJ = self.get_dJ(policy)
+                dJ = self.get_dJ()
 
                 # Update policy (CG or L-BFGS)
                 policy.update(J, dJ)  # TODO
@@ -107,7 +108,7 @@ class PILCO:
             """
             astart = timer()
 
-            def E_x_t(mu_t, sigma_t):
+            def compute_E_x_t(mu_t, sigma_t):
                 """
                 Computes the expected return for specific mu and sigma for a time step
                 :param mu_t: Mean at time step t
@@ -157,11 +158,12 @@ class PILCO:
                 #print("Ext done", timer() - start)
                 return E_x_t
 
-            Ext_sum = 0
+            Ext_sum = Variable(torch.Tensor([[0]]), requires_grad=True)
 
             # Reconstruct policy
             apolicy = Policy(self.env)
             apolicy.assign_Theta(param_array)
+            pl = list(apolicy.Theta.values())
 
             # Generate initial test input
             # Generate input close to prior distribution
@@ -205,36 +207,45 @@ class PILCO:
                 x_t = np.array(lx)
 
                 # (2)
-                Ext_sum += E_x_t(mu_t, sigma_t)
+                Ext_sum_np = Ext_sum.detach().numpy()
+                Ext_sum_np += compute_E_x_t(mu_t, sigma_t)
+                Ext_sum = Variable(torch.Tensor(Ext_sum_np), requires_grad=True)
 
                 # Update x, mu and sigma
                 x_t_1 = x_t
                 mu_t_1 = mu_t
                 sigma_t_1 = sigma_t
 
-            print("Expected rewards: ", Ext_sum)
+            print("Expected rewards: ", Ext_sum.item())
             print("J done, ", timer() - astart)
-            return Ext_sum
+
+            self.Ext_sum = Ext_sum
+            return Ext_sum.item()
 
         # Return the function for computing the expected returns
         return J
 
-    def get_dJ(self, policy):
+    def get_dJ(self):
         """
         Returns a function which can estimate the gradient of the expected return
-        :param policy: Current policy
         :return: function dJ
         """
 
-        def dJ(Ext):
+        def dJ(param_array):
             """
-            :param Ext: Expected returns
             :return: Gradient of expected returns w.r.t. policy param.s
             """
+            # Reconstruct policy
+            apolicy = Policy(self.env)
+            apolicy.assign_Theta(param_array)
+
             # TODO: Torch grads
             # TODO: Maybe other deriv.s are also needed despite torch?
             # (26) Derivative of expected returns w.r.t. policy params
-            dExt = grad(Ext, policy.Theta)
+            polpar = list(apolicy.Theta.values())
+            Ext = self.Ext_sum
+            Ext.backward()
+            dExt = grad(Ext, polpar)
             return dExt
 
         # Return the function for computing the gradients
