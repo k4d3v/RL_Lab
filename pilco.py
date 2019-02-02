@@ -193,7 +193,8 @@ class PILCO:
 
                 # (11)
                 # TODO: Fix (See Deisenroth)
-                sigma_t = sigma_t_1 + Sigma_delta + 2 * cov
+                xx = cov+cov.T
+                sigma_t = sigma_t_1 + Sigma_delta + cov+cov.T
                 # Compute eigenvalues (for debugging)
                 ew,_ = np.linalg.eig(sigma_t)
 
@@ -203,9 +204,6 @@ class PILCO:
                 lx = list(x_t)
                 lx.append(apolicy.get_action(x_t))
                 x_t = np.array(lx)
-
-                #x_t = [np.random.normal(mu_t[d], np.diag(sigma_t)[d]) for d in range(mu_t.shape[0])]
-                #x_t = np.array(x_t + list(apolicy.get_action(np.array(x_t))))
 
                 # (2)
                 Ext_sum += E_x_t(mu_t, sigma_t)
