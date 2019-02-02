@@ -95,8 +95,9 @@ class Policy():
         :param dJ: Function for computing the gradient of the expected return
         """
         init = self.param_array()
-        #new_Theta = minimize(J, init, method='L-BFGS-B', jac=dJ, options={'disp': True}).x
-        new_Theta = minimize(J, init, method='L-BFGS-B', options={'disp': True}).x
+        bnds = ([(1e-5, 1)]*self.n_basis + [(1e-5, 0.2)]*self.s_dim + [(1e-5, 1)]*(self.n_basis*self.s_dim))
+        #new_Theta = minimize(J, init, method='L-BFGS-B', jac=dJ, bounds=bnds options={'disp': True}).x
+        new_Theta = minimize(J, init, method='L-BFGS-B', bounds=bnds, options={'disp': True}).x
         print("Optimization of policy params done.")
         self.assign_Theta(new_Theta)
 

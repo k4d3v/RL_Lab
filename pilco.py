@@ -163,7 +163,6 @@ class PILCO:
             # Reconstruct policy
             apolicy = Policy(self.env)
             apolicy.assign_Theta(param_array)
-            pl = list(apolicy.Theta.values())
 
             # Generate initial test input
             # Generate input close to prior distribution
@@ -186,7 +185,7 @@ class PILCO:
             sigma_t_1 = np.diag([pred_Sigma[0]] * apolicy.s_dim)
             print("Number of time steps: ", len(self.x_s))
             for t in range(len(self.x_s)):
-                print("Time step ", t)
+                #print("Time step ", t)
 
                 mu_delta, Sigma_delta, cov = self.approximate_p_delta_t(dyn_model, x_t_1)
                 # under 2.1
@@ -258,7 +257,7 @@ class PILCO:
         :param x: Test input value
         :return: mu and sigma delta and cov of the predictive distribution
         """
-        start = timer()
+        #start = timer()
 
         # calculate mu_delta
         # init
@@ -360,7 +359,7 @@ class PILCO:
                 acol += prod
             cov[:, a] = acol
 
-        print("Done approximating mu and sigma delta, ", timer() - start)
+        #print("Done approximating mu and sigma delta, ", timer() - start)
         return mu_delta, Sigma_delta, cov
 
     def compute_Q(self, a, b, v, mu_t, Sigma_t):
