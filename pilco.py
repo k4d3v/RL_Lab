@@ -53,7 +53,7 @@ class PILCO:
             dyn_model = DynModel(s_dim, data)
             print("Average GP error: ", dyn_model.training_error_gp())
             # Plot learnt model
-            dyn_model.plot()
+            #dyn_model.plot()
 
             i = 0
             while True:
@@ -178,7 +178,7 @@ class PILCO:
             x_t_1 = x0
             mu_t_1 = x0[:-1]+pred_mu[0]
             sigma_t_1 = np.diag([pred_Sigma[0]]*apolicy.s_dim)
-            for t in range(3):
+            for t in range(5):
                 print("Time step ", t)
 
                 mu_delta, Sigma_delta, cov = self.approximate_p_delta_t(dyn_model, x_t_1)
@@ -202,6 +202,7 @@ class PILCO:
                 mu_t_1 = mu_t
                 sigma_t_1 = sigma_t
 
+            print("Expected rewards: ", Ext_sum)
             print("J done, ", timer()-astart)
             return Ext_sum
 
@@ -211,7 +212,7 @@ class PILCO:
     def get_dJ(self, policy):
         """
         Returns a function which can estimate the gradient of the expected return
-        :param policy:
+        :param policy: Current policy
         :return: function dJ
         """
 
@@ -249,7 +250,7 @@ class PILCO:
         pred_results = (x[:-1]+pred_mu[0], pred_Sigma[0])
 
         # Plot prediction
-        dyn_model.plot(x, pred_mu, pred_Sigma)
+        #dyn_model.plot(x, pred_mu, pred_Sigma)
 
         q = np.zeros((n, D))
         y = np.mat(dyn_model.y)  # output
@@ -299,10 +300,10 @@ class PILCO:
             beta[:, a] = (K_inv[a] * y[:, a]).reshape(-1, ) # TODO: Fix (Values are too big)
             mu_delta[a] = np.dot(beta[:, a].reshape(-1, 1).T, q[:, a].reshape(-1, 1))
             
-        # calculate Sigma_delta
+        # calculate Sigma_delta (Is symmetric!)
         Sigma_delta = np.zeros((D, D))
         for a in range(D):
-            for b in range(D):
+            for b in range(a, D):
                 # Compute Q
                 Q = self.compute_Q(a, b, v, pred_results[0], np.diag(np.array([pred_results[1]] * D)))
 
@@ -313,12 +314,17 @@ class PILCO:
                 E_delta = np.dot(np.dot(beta_a.T, Q), beta_b) # TODO: Too big
                 if a != b:
                     # (18) = (20)- mu_delta_a*mu_delta_b
-                    Sigma_delta[a][b] = E_delta - mu_delta[a] * mu_delta[b]
+                    entry = E_delta - mu_delta[a] * mu_delta[b]
+                    Sigma_delta[a][b] = entry
+                    Sigma_delta[b][a] = entry
                 else:
                     # (23)
-                    E_var = (self.alpha ** 2) - np.trace(K_inv[a] * Q) + dyn_model.noise # TODO: Too small
+                    E_var = self.alpha**2 - np.trace(K_inv[a] * Q) + dyn_model.noise # TODO: Too small
                     # (17)=(23)+(20)- mu_delta_a**2
                     Sigma_delta[a][a] = E_var + E_delta - mu_delta[a] ** 2
+
+        # Compute eigenvals for debugging
+        ew, _ = np.linalg.eig(Sigma_delta)
 
         # Compute covariance matrix (See (12)/ 2.70 Deisenroth)
         # TODO: Vectorize
@@ -334,8 +340,6 @@ class PILCO:
             cov[:, a] = acol
 
         print("Done approximating mu and sigma delta, ", timer()-start)
-        # Compute eigenvals for debugging
-        ew, _ = np.linalg.eig(Sigma_delta)
         return mu_delta, Sigma_delta, cov
 
     def compute_Q(self, a, b, v, mu_t, Sigma_t):
@@ -354,8 +358,7 @@ class PILCO:
         D = len(self.x_s[0])
 
         R = Sigma_t * (self.Lambda_inv[a] + self.Lambda_inv[b] + np.eye(D))
-        print(Sigma_t[0][0])
-        print(R[0][0])
+
         R_inv = np.linalg.inv(R)
         detsqrt = np.sqrt(np.linalg.det(R))
 

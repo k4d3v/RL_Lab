@@ -4,7 +4,7 @@ from scipy.optimize import minimize
 from torch.autograd import Variable, grad
 from torch.distributions import Normal
 from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import RBF, WhiteKernel
+from sklearn.gaussian_process.kernels import RBF, WhiteKernel, ConstantKernel
 from matplotlib import pyplot as plt
 
 
@@ -191,7 +191,8 @@ class DynModel:
         """
         Fits a sklearn GP based on the training data
         """
-        kern = self.alpha**2 * RBF(length_scale=[0.1] * (self.s_dim + 1), length_scale_bounds=np.array([1e-10, 1])) \
+        kern = ConstantKernel(self.alpha**2, constant_value_bounds=(1.1, 10)) \
+               * RBF(length_scale=[0.1] * (self.s_dim + 1), length_scale_bounds=np.array([1e-10, 0.2])) \
                + WhiteKernel()
         gp = GaussianProcessRegressor(kernel=kern, n_restarts_optimizer=10)
         gp.fit(self.x, self.y)
@@ -206,6 +207,12 @@ class DynModel:
         print("Done fitting GP")
 
     def plot(self, x_test=None, y_pred=None, sigma=None):
+        """
+        Plots ground truth and predictions
+        :param x_test:
+        :param y_pred:
+        :param sigma:
+        """
         # Predict on training inputs
         if y_pred is None:
             mu, sig = self.gp.predict(self.x, return_std=True)
