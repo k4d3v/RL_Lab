@@ -54,6 +54,8 @@ class Policy():
         """
         start = timer()
 
+        old_observation = [np.inf]*self.s_dim
+
         # Reset the environment
         observation = self.env.reset()
         episode_reward = 0.0
@@ -73,7 +75,13 @@ class Policy():
             point.append(reward)  # Save reward to tuple
 
             episode_reward += reward
-            traj.append(point)  # Add Tuple to traj
+
+            # Append point if it is far enough from the previous one
+            if not np.all(np.abs(observation - old_observation) < 5e-2):
+                traj.append(point)  # Add Tuple to traj
+                old_observation = observation
+            else:
+                print("Sampled redundant state.")
 
         print("Done rollout, ", timer() - start)
         print("Episode reward: ", episode_reward)
