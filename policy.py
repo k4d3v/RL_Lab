@@ -88,26 +88,49 @@ class Policy():
         print("Episode reward: ", episode_reward)
         return traj
 
-    def update(self, J, dJ):
+    def update(self, J, dJ, p):
         """
         Optimizes the policy param.s w.r.t. the expected return
         :param J: Function for computing the expected return
         :param dJ: Function for computing the gradient of the expected return
+        :param p: Denotes which params are going to be optimized
         """
-        init = self.param_array()
-        bnds = ([(1e-5, 1)]*self.n_basis + [(1e-5, 0.2)]*self.s_dim + [(1e-5, 1)]*(self.n_basis*self.s_dim))
-        #new_Theta = minimize(J, init, method='L-BFGS-B', jac=dJ, bounds=bnds options={'disp': True}).x
-        new_Theta = minimize(J, init, method='L-BFGS-B', bounds=bnds, options={'disp': True}).x
-        print("Optimization of policy params done.")
-        self.assign_Theta(new_Theta)
+        init_all = self.param_array()
+        init = []
+        bnds = []
+        if p==0:
+            init = init_all[:self.n_basis]
+            bnds = ([(1e-10, 1)] * self.n_basis)
+        elif p==1:
+            init = init_all[self.n_basis:self.n_basis+self.s_dim]
+            bnds = ([(1e-10, 1)] * self.s_dim)
+        elif p==2:
+            init = init_all[self.n_basis+self.s_dim:]
+            bnds = ([(1e-10, 1)] * (self.n_basis * self.s_dim))
 
-    def check_convergence(self, old_Theta):
+        #new_Theta = minimize(J, init, method='L-BFGS-B', jac=dJ, bounds=bnds options={'disp': True, 'maxfun': 1}).x
+        new_Theta = minimize(J, init, method='L-BFGS-B', bounds=bnds, options={'disp': True, 'maxfun': 1}).x
+        print("Optimization of policy params done.")
+        new_Theta_all = init_all
+
+        if p==0:
+            new_Theta_all[:self.n_basis] = new_Theta
+        elif p==1:
+            new_Theta_all[self.n_basis:self.n_basis+self.s_dim] = new_Theta
+        elif p==2:
+            new_Theta_all[self.n_basis+self.s_dim:] = new_Theta
+
+        self.assign_Theta(new_Theta_all)
+
+    def check_convergence(self, old_policy):
         """
         Checks if there is a significant difference between the old and new policy param.s
-        :param old_Theta: Old params
+        :param old_policy: Policy from previous iteration
         :return: True if convergence
         """
-        return True
+        new_Theta = self.param_array()
+        old_Theta = old_policy.param_array()
+        return np.all(np.abs(new_Theta-old_Theta) < 1e-2)
 
     def param_array(self):
         """

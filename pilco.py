@@ -12,7 +12,7 @@ from dyn_model import DynModel
 
 
 class PILCO:
-    def __init__(self, env_name, J=1, N=1):
+    def __init__(self, env_name, J=1, N=10):
         """
         :param env_name: Name of the environment
         :param J: Number of rollouts
@@ -59,27 +59,31 @@ class PILCO:
             # Plot learnt model
             # dyn_model.plot()
 
+            # Store some vars for convenience
+            self.prepare(dyn_model)
+
             i = 0
             while True:
                 print("Policy search iteration ", i)
 
-                # Store some vars for convenience
-                self.prepare(dyn_model)
+                # Loop over number of params
+                for p in range(3):
 
-                # Approx. inference for policy evaluation (Sec. 2.2)
-                # Get J^pi(policy) (10-12), (24)
-                J = self.get_J(dyn_model)  # TODO
+                    all_params = policy.param_array()
 
-                # Policy improvement based on the gradient (Sec. 2.3)
-                # Get the gradient of J (26-30)
-                # TODO: Torch gradient
-                dJ = self.get_dJ()
+                    # Approx. inference for policy evaluation (Sec. 2.2)
+                    # Get J^pi(policy) (10-12), (24)
+                    J = self.get_J(dyn_model, all_params, p)
 
-                # Update policy (CG or L-BFGS)
-                policy.update(J, dJ)  # TODO
+                    # Policy improvement based on the gradient (Sec. 2.3)
+                    # Get the gradient of J (26-30)
+                    # TODO: Torch gradient
+                    dJ = self.get_dJ(all_params, p)
+
+                    # Update policy (CG or L-BFGS)
+                    policy.update(J, dJ, p)
 
                 # Convergence check
-                # TODO
                 if policy.check_convergence(old_policy):
                     break
 
@@ -93,13 +97,14 @@ class PILCO:
         print("Training done, ", timer() - start)
         return policy
 
-    def get_J(self, dyn_model):
+    def get_J(self, dyn_model, all_params, p):
         """
         Returns a function which constructs a gaussian approximation for every p(x_t) based on subsequent one-step predictions and computes the expected values
         :param dyn_model: Trained dynamics model
+        :param all_params: Contains parameters which are to be kept constant during optimization
+        :param p: Starting index of the parameters for optimization
         :return: Function for estimating J (Expected values)
         """
-
         def J(param_array):
             """
             A function which computes the expected return for a policy
@@ -107,6 +112,7 @@ class PILCO:
             :return: expected return
             """
             astart = timer()
+            print("Current x:", param_array)
 
             def compute_E_x_t(mu_t, sigma_t):
                 """
@@ -162,7 +168,13 @@ class PILCO:
 
             # Reconstruct policy
             apolicy = Policy(self.env)
-            apolicy.assign_Theta(param_array)
+            if p==0:
+                all_params[:apolicy.n_basis] = param_array
+            elif p==1:
+                all_params[apolicy.n_basis:apolicy.n_basis+apolicy.s_dim] = param_array
+            elif p==2:
+                all_params[apolicy.n_basis+apolicy.s_dim:] = param_array
+            apolicy.assign_Theta(all_params)
 
             # Generate initial test input
             # Generate input close to prior distribution
@@ -224,19 +236,27 @@ class PILCO:
         # Return the function for computing the expected returns
         return J
 
-    def get_dJ(self):
+    def get_dJ(self, all_params, p):
         """
         Returns a function which can estimate the gradient of the expected return
+        :param all_params: Policy parameters
+        :param p: Denotes which params are to be varied
         :return: function dJ
         """
-
         def dJ(param_array):
             """
+            :param param_array: Array containing the initial parameters for optimization
             :return: Gradient of expected returns w.r.t. policy param.s
             """
             # Reconstruct policy
             apolicy = Policy(self.env)
-            apolicy.assign_Theta(param_array)
+            if p == 0:
+                all_params[:apolicy.s_dim] = param_array
+            elif p == 1:
+                all_params[apolicy.s_dim:apolicy.s_dim + apolicy.n_basis] = param_array
+            elif p == 2:
+                all_params[apolicy.s_dim + apolicy.n_basis:] = param_array
+            apolicy.assign_Theta(all_params)
 
             # TODO: Torch grads
             # TODO: Maybe other deriv.s are also needed despite torch?
