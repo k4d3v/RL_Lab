@@ -6,6 +6,7 @@ import numpy as np
 import torch
 from torch.autograd import grad, Variable
 from timeit import default_timer as timer
+from matplotlib import pyplot as plt
 
 from policy import Policy
 from dyn_model import DynModel
@@ -195,7 +196,9 @@ class PILCO:
             x_t_1 = x0
             mu_t_1 = x0[:-1] + pred_mu[0]
             sigma_t_1 = np.diag([pred_Sigma[0]] * apolicy.s_dim)
+
             print("Number of time steps: ", len(self.x_s))
+            traj = [x0]
             for t in range(len(self.x_s)):
                 #print("Time step ", t)
 
@@ -210,7 +213,6 @@ class PILCO:
                 # Compute eigenvalues (for debugging)
                 ew,_ = np.linalg.eig(sigma_t)
 
-                # TODO: Sigma is not a diagonal matrix!
                 x_t = np.random.multivariate_normal(mu_t, sigma_t)
                 # Get action from policy based on the state
                 lx = list(x_t)
@@ -223,12 +225,16 @@ class PILCO:
                 Ext_sum = Variable(torch.Tensor(Ext_sum_np), requires_grad=True)
 
                 # Update x, mu and sigma
+                traj.append(x_t)
                 x_t_1 = x_t
                 mu_t_1 = mu_t
                 sigma_t_1 = sigma_t
 
             print("Expected rewards: ", Ext_sum.item())
             print("J done, ", timer() - astart)
+
+            # Plot trajectory
+            self.plot_traj(traj)
 
             self.Ext_sum = Ext_sum
             return Ext_sum.item()
@@ -476,3 +482,14 @@ class PILCO:
                         i += 1
         print("New trajectory length:", len(data[-1]))
         return data
+
+    def plot_traj(self, traj):
+        x = range(len(traj))
+        for d in range(self.D+1):
+            plt.subplot(self.D + 1, 1, d + 1)
+            y_d = np.array([ay[d] for ay in traj])
+            plt.plot(x, y_d)
+            plt.xlabel("Time Step")
+            plt.ylabel("Pred. s "+str(d)) if d<self.D else plt.ylabel("Pred. a")
+        plt.suptitle("Predicted Trajectories for each Dimension")
+        plt.show()
