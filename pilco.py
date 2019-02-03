@@ -145,8 +145,8 @@ class PILCO:
                 T_inv *= sigma_c**(-2)
                 """
                 C = np.mat(np.array([[1, l_p, 0], [0, 0, l_p]]))
-                T_inv = (sigma_c ** -2) * C.T * C
-                # T_inv = np.eye(D)
+                T_inv = (sigma_c ** -2) * C.T * C # TODO: Inverse is too big!
+                #T_inv = np.eye(3)
 
                 # Use only first 3 dims
                 mu_t = mu_t[:-2]
@@ -157,10 +157,15 @@ class PILCO:
                 S = T_inv * np.linalg.inv(I + sigma_t * T_inv)
 
                 # KIT: (3.45)
-                # TODO: fact is nan; Fix T!
+                # TODO: fact is too small because of big T_inv and big sigma_t (Maybe predicted vals are still not quite true)
+                xx = I + sigma_t * T_inv # For debugging
                 fact = 1 / np.sqrt(np.linalg.det(I + sigma_t * T_inv))
                 expo = np.exp(-0.5 * np.dot(np.dot((mu_t - x_target).T, S), (mu_t - x_target)))
                 E_x_t = 1 - fact * expo
+
+                # TODO: E_x_t should be 0, if target is reached!
+                # For debugging
+                E_x_t_target = 1 - fact * np.exp(-0.5 * np.dot(np.dot((x_target - x_target).T, S), (x_target - x_target)))
 
                 #print("Ext done", timer() - start)
                 return E_x_t
@@ -230,7 +235,7 @@ class PILCO:
                 mu_t_1 = mu_t
                 sigma_t_1 = sigma_t
 
-            print("Expected rewards: ", Ext_sum.item())
+            print("Expected costs: ", Ext_sum.item())
             print("J done, ", timer() - astart)
 
             # Plot trajectory
