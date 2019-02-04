@@ -61,7 +61,7 @@ class PILCO:
             dyn_model = DynModel(s_dim, data)
             print("Average GP error: ", dyn_model.training_error_gp())
             # Plot learnt model
-            #dyn_model.plot()
+            dyn_model.plot()
 
             # Store some vars for convenience
             self.prepare(dyn_model)
@@ -148,8 +148,8 @@ class PILCO:
                 T_inv *= sigma_c**(-2)
                 """
                 C = np.mat(np.array([[1, l_p, 0], [0, 0, l_p]]))
-                T_inv = (sigma_c ** -2) * C.T * C # TODO: Inverse is too big!
-                #T_inv = np.eye(3)
+                #T_inv = (sigma_c ** -2) * C.T * C # TODO: Inverse is too big!
+                T_inv = np.eye(3)
 
                 # Use only first 3 dims
                 mu_t = mu_t[:-2]
@@ -352,8 +352,7 @@ class PILCO:
                     K_dim[i][j] = kern
                     K_dim[j][i] = kern
             K.append(K_dim)
-            #K_inv.append(np.linalg.inv(K_dim + dyn_model.noise * np.eye(n)))
-            K_inv.append(np.zeros((n,n)))
+            K_inv.append(np.linalg.inv(K_dim + dyn_model.noise * np.eye(n)))
 
         # calculate beta, under (14)
         # calculate mu_delta (14)
