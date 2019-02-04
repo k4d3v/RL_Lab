@@ -20,7 +20,8 @@ class Policy():
         self.n_basis = n_basis
         # Init. random control param.s
         W = Variable(torch.rand(self.n_basis), requires_grad=True)
-        Lamb = Variable(torch.Tensor(np.eye(self.s_dim)), requires_grad=True)
+        Lambdi = np.random.uniform(size=self.s_dim)
+        Lamb = Variable(torch.Tensor(np.diag(Lambdi)), requires_grad=True)
         Mu = Variable(torch.rand(self.n_basis, self.s_dim), requires_grad=True)
         self.Theta = {"W": W, "Lamb": Lamb, "Mu": Mu}
 
@@ -108,7 +109,7 @@ class Policy():
             init = init_all[self.n_basis+self.s_dim:]
             bnds = ([(1e-5, 1)] * (self.n_basis * self.s_dim))
 
-        #new_Theta = minimize(J, init, method='L-BFGS-B', jac=dJ, bounds=bnds options={'disp': True, 'maxfun': 1}).x
+        #new_Theta = minimize(J, init, method='L-BFGS-B', jac=dJ, bounds=bnds, options={'disp': True, 'maxfun': 1}).x
         new_Theta = minimize(J, init, method='L-BFGS-B', bounds=bnds, options={'disp': True, 'maxfun': 1}).x
         print("Optimization of policy params done.")
         new_Theta_all = init_all

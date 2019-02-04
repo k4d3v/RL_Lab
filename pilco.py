@@ -1,5 +1,6 @@
 """ An implementation of the PILCO algorithm as shown in
 http://www.icml-2011.org/papers/323_icmlpaper.pdf"""
+
 import gym
 import quanser_robots
 import numpy as np
@@ -7,14 +8,15 @@ import torch
 from torch.autograd import grad, Variable
 from timeit import default_timer as timer
 from matplotlib import pyplot as plt
-from torch.optim import optimizer
+import torch.optim as optim
+from random import randint
 
 from policy import Policy
 from dyn_model import DynModel
 
 
 class PILCO:
-    def __init__(self, env_name, J=3, N=10):
+    def __init__(self, env_name, J=1, N=10):
         """
         :param env_name: Name of the environment
         :param J: Number of rollouts
@@ -59,7 +61,7 @@ class PILCO:
             dyn_model = DynModel(s_dim, data)
             print("Average GP error: ", dyn_model.training_error_gp())
             # Plot learnt model
-            dyn_model.plot()
+            #dyn_model.plot()
 
             # Store some vars for convenience
             self.prepare(dyn_model)
@@ -160,7 +162,8 @@ class PILCO:
 
                 # KIT: (3.45)
                 # TODO: fact is too small because of big T_inv and big sigma_t (Maybe predicted vals are still not quite true)
-                fact = 1 / np.sqrt(np.linalg.det(IST))
+                #fact = 1 / np.sqrt(np.linalg.det(IST))
+                fact = 1
                 #print("Cost factor (Should be close to 1, if sigma is small): ", fact)
                 expo = np.exp(-0.5 * np.dot(np.dot((mu_t - x_target).T, S), (mu_t - x_target)))
                 E_x_t = 1 - fact * expo
@@ -188,7 +191,8 @@ class PILCO:
             # Generate input close to prior distribution
             mean_samp = np.mean(self.x_s, axis=0)
             std_samp = np.std(self.x_s, axis=0)
-            x0 = np.random.multivariate_normal(mean_samp, np.diag(std_samp))
+            #x0 = np.random.multivariate_normal(mean_samp, np.diag(std_samp))
+            x0 = self.x_s[randint(0, dyn_model.N - 1)]
             # Get action from policy based on the state
             lx0 = list(x0)
             lx0.append(apolicy.get_action(x0))
@@ -246,7 +250,7 @@ class PILCO:
             print("J done, ", timer() - astart)
 
             # Plot trajectory
-            self.plot_traj(traj)
+            #self.plot_traj(traj)
 
             self.Ext_sum = Ext_sum
             return Ext_sum.item()
@@ -269,17 +273,18 @@ class PILCO:
             # Reconstruct policy
             apolicy = Policy(self.env)
             if p == 0:
-                all_params[:apolicy.s_dim] = param_array
+                all_params[:apolicy.n_basis] = param_array
             elif p == 1:
-                all_params[apolicy.s_dim:apolicy.s_dim + apolicy.n_basis] = param_array
+                all_params[apolicy.n_basis:apolicy.n_basis + apolicy.s_dim] = param_array
             elif p == 2:
-                all_params[apolicy.s_dim + apolicy.n_basis:] = param_array
+                all_params[apolicy.n_basis + apolicy.s_dim:] = param_array
             apolicy.assign_Theta(all_params)
 
             # TODO: Torch grads
             # TODO: Maybe other deriv.s are also needed despite torch?
             # (26) Derivative of expected returns w.r.t. policy params
             polpar = list(apolicy.Theta.values())
+            optimizer = optim.Adam(polpar)
             Ext = self.Ext_sum
             Ext.backward()
             optimizer.step()
@@ -347,7 +352,8 @@ class PILCO:
                     K_dim[i][j] = kern
                     K_dim[j][i] = kern
             K.append(K_dim)
-            K_inv.append(np.linalg.inv(K_dim + dyn_model.noise * np.eye(n)))
+            #K_inv.append(np.linalg.inv(K_dim + dyn_model.noise * np.eye(n)))
+            K_inv.append(np.zeros((n,n)))
 
         # calculate beta, under (14)
         # calculate mu_delta (14)
@@ -369,19 +375,17 @@ class PILCO:
 
                 # (20)
                 E_delta = np.dot(np.dot(beta_a.T, Q), beta_b)  # TODO: Too big
+                mu_prod = mu_delta[a] * mu_delta[b]
                 if a != b:
                     # (18) = (20)- mu_delta_a*mu_delta_b
-                    xx = mu_delta[a] * mu_delta[b]
-                    xxx = E_delta
-                    entry = E_delta - mu_delta[a] * mu_delta[b]
+                    entry = E_delta - mu_prod
                     Sigma_delta[a][b] = entry
                     Sigma_delta[b][a] = entry
                 else:
                     # (23)
-                    tra = np.trace(np.dot(K_inv[a], Q))
                     E_var = self.alpha ** 2 - np.trace(np.dot(K_inv[a], Q)) + dyn_model.noise  # TODO: Too small
                     # (17)=(23)+(20)- mu_delta_a**2
-                    Sigma_delta[a][a] = E_var + E_delta - mu_delta[a] ** 2
+                    Sigma_delta[a][b] = E_var + E_delta - mu_prod
 
         # Compute eigenvals for debugging
         ew, _ = np.linalg.eig(Sigma_delta)
