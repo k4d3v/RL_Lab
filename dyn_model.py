@@ -13,7 +13,7 @@ class DynModel:
     Gaussian Process with a squared exponential kernel for learning the system dynamics
     """
 
-    def __init__(self, s_dim, data, lambs=None, beta=0.0001):
+    def __init__(self, s_dim, data, lambs=None):
         """
         :param s_dim: Dimension of states
         :param x: Training inputs
@@ -27,11 +27,10 @@ class DynModel:
         self.N = len(self.x)
         self.lambs = lambs
         self.alpha = 1
-        self.beta = beta
+        self.beta = 0.0001
 
-        self.mean = []  # TODO: Compute (?)
         self.cov_f = self.squared_expo_kernel
-        self.setup_sigma()
+        #self.setup_sigma()
         self.fit_gp()
 
     def squared_expo_kernel(self, x, y, lambs=None):
@@ -132,32 +131,6 @@ class DynModel:
                 log_prob.append(data_fit - det - norm)
             return np.mean(log_prob)
 
-        """
-        # Function for computing the derivatives of mll
-        def dmll(lambs):
-            # Compute Kernel matrix and inverse based on hyperparam lambda
-            sigma = self.calculate_sigma(self.x, self.cov_f, lambs)
-            K = sigma + sig_n * np.eye(sigma.shape[0])
-            KI = np.mat(K).I
-
-            # Gradient of the matrix w.r.t. lambdas
-            # TODO: Return matrix for current lambda!
-            def gradimat(K, lambs):
-                nablas = []
-                for l in range(len(lambs)):
-                    nabla_K = np.zeros(K.shape)
-                    N = K.shape[0]
-                    for i in range(N):
-                        for j in range(i + 1, N):
-                            dk = K[i][j]*(((self.x[i][d] - self.x[j][d])**2)/lambs[d]**3)
-                            nabla_K[i][j] = dk
-                            nabla_K[j][i] = dk
-                        nablas.append(nabla_K)
-                return nablas
-            alpha = KI*y
-            return (1/2)*np.trace((alpha*alpha.T-KI)*gradimat(K, lambs))
-            """
-
         # Optimize marginal ll
         init = [1] * (self.s_dim + 1)
         bounds = [(1e-9, None)] * (self.s_dim + 1)
@@ -193,9 +166,9 @@ class DynModel:
         """
         kern = ConstantKernel(self.alpha**2, constant_value_bounds=(1, 10)) \
                * RBF(length_scale=[1] * (self.s_dim + 1), length_scale_bounds=np.array([1e-5, 1])) \
-               + WhiteKernel(noise_level=0.1)
-        gp = GaussianProcessRegressor(kernel=kern, n_restarts_optimizer=10, optimizer=None)
-        #gp = GaussianProcessRegressor(kernel=kern, n_restarts_optimizer=10)
+               + WhiteKernel(noise_level=1e-5)
+        #gp = GaussianProcessRegressor(kernel=kern, optimizer=None)
+        gp = GaussianProcessRegressor(kernel=kern, n_restarts_optimizer=10)
         gp.fit(self.x, self.y)
         # self.lambs = gp.kernel_.get_params()["length_scale"]
         opti_params = gp.kernel_.get_params()

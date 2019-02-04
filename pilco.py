@@ -14,7 +14,7 @@ from dyn_model import DynModel
 
 
 class PILCO:
-    def __init__(self, env_name, J=1, N=10):
+    def __init__(self, env_name, J=3, N=10):
         """
         :param env_name: Name of the environment
         :param J: Number of rollouts
@@ -161,6 +161,7 @@ class PILCO:
                 # KIT: (3.45)
                 # TODO: fact is too small because of big T_inv and big sigma_t (Maybe predicted vals are still not quite true)
                 fact = 1 / np.sqrt(np.linalg.det(IST))
+                #print("Cost factor (Should be close to 1, if sigma is small): ", fact)
                 expo = np.exp(-0.5 * np.dot(np.dot((mu_t - x_target).T, S), (mu_t - x_target)))
                 E_x_t = 1 - fact * expo
 
@@ -193,9 +194,9 @@ class PILCO:
             lx0.append(apolicy.get_action(x0))
             x0 = np.array(lx0)
 
-            pred_mu, pred_Sigma = dyn_model.gp.predict([x0], return_std=True)
+            pred_mu, pred_Sigma = dyn_model.gp.predict([x0], return_std=True) # Model is overfitting! See Sigma!
             # Plot prediction
-            # dyn_model.plot(x0, pred_mu, pred_Sigma)
+            #dyn_model.plot(x0, pred_mu, pred_Sigma)
 
             # Compute mu_t for t from 1 to T
             # (10)-(12)
@@ -207,6 +208,11 @@ class PILCO:
             traj = [x0]
             for t in range(len(self.x_s)):
                 #print("Time step ", t)
+
+                # (2)
+                Ext_sum_np = Ext_sum.detach().numpy()
+                Ext_sum_np += compute_E_x_t(mu_t_1, sigma_t_1)
+                Ext_sum = Variable(torch.Tensor(Ext_sum_np), requires_grad=True)
 
                 mu_delta, Sigma_delta, cov = self.approximate_p_delta_t(dyn_model, x_t_1)
                 # under 2.1
@@ -225,22 +231,22 @@ class PILCO:
                 lx.append(apolicy.get_action(x_t))
                 x_t = np.array(lx)
 
-                # (2)
-                Ext_sum_np = Ext_sum.detach().numpy()
-                Ext_sum_np += compute_E_x_t(mu_t, sigma_t)
-                Ext_sum = Variable(torch.Tensor(Ext_sum_np), requires_grad=True)
-
                 # Update x, mu and sigma
                 traj.append(x_t)
                 x_t_1 = x_t
                 mu_t_1 = mu_t
                 sigma_t_1 = sigma_t
 
+            # (2)
+            Ext_sum_np = Ext_sum.detach().numpy()
+            Ext_sum_np += compute_E_x_t(mu_t_1, sigma_t_1)
+            Ext_sum = Variable(torch.Tensor(Ext_sum_np), requires_grad=True)
+
             print("Expected costs: ", Ext_sum.item())
             print("J done, ", timer() - astart)
 
             # Plot trajectory
-            #self.plot_traj(traj)
+            self.plot_traj(traj)
 
             self.Ext_sum = Ext_sum
             return Ext_sum.item()
@@ -303,7 +309,7 @@ class PILCO:
         pred_results = (x[:-1] + pred_mu[0], pred_Sigma[0])
 
         # Plot prediction
-        # dyn_model.plot(x, pred_mu, pred_Sigma)
+        #dyn_model.plot(x, pred_mu, pred_Sigma)
 
         q = np.zeros((n, D))
         y = np.mat(dyn_model.y)  # output
@@ -354,22 +360,25 @@ class PILCO:
         # calculate Sigma_delta (Is symmetric!)
         Sigma_delta = np.zeros((D, D))
         for a in range(D):
+            beta_a = beta[:, a].reshape(-1, 1)
             for b in range(a, D):
                 # Compute Q
                 Q = self.compute_Q(a, b, v, pred_results[0], np.diag(np.array([pred_results[1]] * D)))
 
-                beta_a = beta[:, a].reshape(-1, 1)
                 beta_b = beta[:, b].reshape(-1, 1)
 
                 # (20)
                 E_delta = np.dot(np.dot(beta_a.T, Q), beta_b)  # TODO: Too big
                 if a != b:
                     # (18) = (20)- mu_delta_a*mu_delta_b
+                    xx = mu_delta[a] * mu_delta[b]
+                    xxx = E_delta
                     entry = E_delta - mu_delta[a] * mu_delta[b]
                     Sigma_delta[a][b] = entry
                     Sigma_delta[b][a] = entry
                 else:
                     # (23)
+                    tra = np.trace(np.dot(K_inv[a], Q))
                     E_var = self.alpha ** 2 - np.trace(np.dot(K_inv[a], Q)) + dyn_model.noise  # TODO: Too small
                     # (17)=(23)+(20)- mu_delta_a**2
                     Sigma_delta[a][a] = E_var + E_delta - mu_delta[a] ** 2
@@ -389,6 +398,9 @@ class PILCO:
                 prod = np.dot((bq * sig_inver), x_mu)
                 acol += prod
             cov[:, a] = acol
+
+        # For debugging
+        ew_cov, _ = np.linalg.eig(cov+cov.T)
 
         #print("Done approximating mu and sigma delta, ", timer() - start)
         return mu_delta, Sigma_delta, cov
