@@ -7,6 +7,7 @@ import torch
 from torch.autograd import grad, Variable
 from timeit import default_timer as timer
 from matplotlib import pyplot as plt
+from torch.optim import optimizer
 
 from policy import Policy
 from dyn_model import DynModel
@@ -58,7 +59,7 @@ class PILCO:
             dyn_model = DynModel(s_dim, data)
             print("Average GP error: ", dyn_model.training_error_gp())
             # Plot learnt model
-            # dyn_model.plot()
+            dyn_model.plot()
 
             # Store some vars for convenience
             self.prepare(dyn_model)
@@ -154,12 +155,12 @@ class PILCO:
                 sigma_t = sigma_t[:-2].T
 
                 # KIT: (3.46)
-                S = T_inv * np.linalg.inv(I + sigma_t * T_inv)
+                IST = I + np.dot(sigma_t, T_inv)
+                S = np.dot(T_inv, np.linalg.inv(IST))
 
                 # KIT: (3.45)
                 # TODO: fact is too small because of big T_inv and big sigma_t (Maybe predicted vals are still not quite true)
-                xx = I + sigma_t * T_inv # For debugging
-                fact = 1 / np.sqrt(np.linalg.det(I + sigma_t * T_inv))
+                fact = 1 / np.sqrt(np.linalg.det(IST))
                 expo = np.exp(-0.5 * np.dot(np.dot((mu_t - x_target).T, S), (mu_t - x_target)))
                 E_x_t = 1 - fact * expo
 
@@ -239,7 +240,7 @@ class PILCO:
             print("J done, ", timer() - astart)
 
             # Plot trajectory
-            self.plot_traj(traj)
+            #self.plot_traj(traj)
 
             self.Ext_sum = Ext_sum
             return Ext_sum.item()
@@ -275,6 +276,7 @@ class PILCO:
             polpar = list(apolicy.Theta.values())
             Ext = self.Ext_sum
             Ext.backward()
+            optimizer.step()
             dExt = grad(Ext, polpar)
             return dExt
 
@@ -318,7 +320,7 @@ class PILCO:
 
             for a in range(D):
                 # (15)
-                fract = (self.alpha ** 2) / np.sqrt(np.linalg.det(Sigma_t_1 * self.Lambda_inv[a] + np.eye(D)))
+                fract = (self.alpha ** 2) / np.sqrt(np.linalg.det(np.dot(Sigma_t_1, self.Lambda_inv[a]) + np.eye(D)))
                 vi = v[i].reshape(-1, 1)
                 # Sigma[t-1] is variances at time t-1 from GP
                 expo = np.exp((-1 / 2) * np.dot(np.dot(vi.T, np.linalg.inv(Sigma_t_1 + self.Lambda[a])), vi))
@@ -335,8 +337,6 @@ class PILCO:
                     # (6)
                     curr_x = (self.x_s[i] - self.x_s[j]).reshape(-1, 1)
                     # self.x_s is x_schlange in paper,training input
-                    # kern = (self.alpha[a] ** 2) * np.exp(-0.5 * ((self.x_s[i][a] - self.x_s[j][a]) ** 2) / length_scale[a])
-                    # kern = self.alpha * np.exp(-0.5 * (np.dot(np.dot(curr_x.T, self.Lambda_inv[a]), curr_x)))
                     kern = (self.alpha ** 2) * np.exp(-0.5 * (np.dot(np.dot(curr_x.T, self.Lambda_inv[a]), curr_x)))
                     K_dim[i][j] = kern
                     K_dim[j][i] = kern
@@ -348,7 +348,7 @@ class PILCO:
         beta = np.zeros((n, D))
         mu_delta = np.zeros(D)
         for a in range(D):
-            beta[:, a] = (K_inv[a] * y[:, a]).reshape(-1, )  # TODO: Fix (Values are too big)
+            beta[:, a] = np.dot(K_inv[a], y[:, a]).reshape(-1, )  # TODO: Fix (Values are too big)
             mu_delta[a] = np.dot(beta[:, a].reshape(-1, 1).T, q[:, a].reshape(-1, 1))
 
         # calculate Sigma_delta (Is symmetric!)
@@ -370,7 +370,7 @@ class PILCO:
                     Sigma_delta[b][a] = entry
                 else:
                     # (23)
-                    E_var = self.alpha ** 2 - np.trace(K_inv[a] * Q) + dyn_model.noise  # TODO: Too small
+                    E_var = self.alpha ** 2 - np.trace(np.dot(K_inv[a], Q)) + dyn_model.noise  # TODO: Too small
                     # (17)=(23)+(20)- mu_delta_a**2
                     Sigma_delta[a][a] = E_var + E_delta - mu_delta[a] ** 2
 
@@ -381,7 +381,7 @@ class PILCO:
         # TODO: Vectorize
         cov = np.zeros((D, D))
         for a in range(D):
-            sig_inver = Sigma_t_1 * np.linalg.inv(Sigma_t_1 + self.Lambda[a])
+            sig_inver = np.dot(Sigma_t_1, np.linalg.inv(Sigma_t_1 + self.Lambda[a]))
             acol = 0
             for i in range(n):
                 bq = beta[:, a][i] * q[:, a][i]
@@ -408,7 +408,7 @@ class PILCO:
         n = len(self.x_s)
         D = len(self.x_s[0])
 
-        R = Sigma_t * (self.Lambda_inv[a] + self.Lambda_inv[b] + np.eye(D))
+        R = np.dot(Sigma_t, (self.Lambda_inv[a] + self.Lambda_inv[b] + np.eye(D)))
 
         R_inv = np.linalg.inv(R)
         detsqrt = np.sqrt(np.linalg.det(R))

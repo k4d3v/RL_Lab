@@ -191,10 +191,11 @@ class DynModel:
         """
         Fits a sklearn GP based on the training data
         """
-        kern = ConstantKernel(self.alpha**2, constant_value_bounds=(1.1, 10)) \
-               * RBF(length_scale=[0.1] * (self.s_dim + 1), length_scale_bounds=np.array([1e-10, 0.2])) \
-               + WhiteKernel()
-        gp = GaussianProcessRegressor(kernel=kern, n_restarts_optimizer=10)
+        kern = ConstantKernel(self.alpha**2, constant_value_bounds=(1, 10)) \
+               * RBF(length_scale=[1] * (self.s_dim + 1), length_scale_bounds=np.array([1e-5, 1])) \
+               + WhiteKernel(noise_level=0.1)
+        gp = GaussianProcessRegressor(kernel=kern, n_restarts_optimizer=10, optimizer=None)
+        #gp = GaussianProcessRegressor(kernel=kern, n_restarts_optimizer=10)
         gp.fit(self.x, self.y)
         # self.lambs = gp.kernel_.get_params()["length_scale"]
         opti_params = gp.kernel_.get_params()
@@ -209,9 +210,9 @@ class DynModel:
     def plot(self, x_test=None, y_pred=None, sigma=None):
         """
         Plots ground truth and predictions
-        :param x_test:
-        :param y_pred:
-        :param sigma:
+        :param x_test: A gaussian distributed test input
+        :param y_pred: Predicted mean
+        :param sigma: Predicted std
         """
         # Predict on training inputs
         if y_pred is None:

@@ -100,13 +100,13 @@ class Policy():
         bnds = []
         if p==0:
             init = init_all[:self.n_basis]
-            bnds = ([(1e-10, 1)] * self.n_basis)
+            bnds = ([(1e-5, 1)] * self.n_basis)
         elif p==1:
             init = init_all[self.n_basis:self.n_basis+self.s_dim]
-            bnds = ([(1e-10, 1)] * self.s_dim)
+            bnds = ([(1e-5, 1)] * self.s_dim)
         elif p==2:
             init = init_all[self.n_basis+self.s_dim:]
-            bnds = ([(1e-10, 1)] * (self.n_basis * self.s_dim))
+            bnds = ([(1e-5, 1)] * (self.n_basis * self.s_dim))
 
         #new_Theta = minimize(J, init, method='L-BFGS-B', jac=dJ, bounds=bnds options={'disp': True, 'maxfun': 1}).x
         new_Theta = minimize(J, init, method='L-BFGS-B', bounds=bnds, options={'disp': True, 'maxfun': 1}).x
