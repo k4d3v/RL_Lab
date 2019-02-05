@@ -165,7 +165,7 @@ class DynModel:
         Fits a sklearn GP based on the training data
         """
         kern = ConstantKernel(self.alpha**2, constant_value_bounds=(1, 9)) \
-               * RBF(length_scale=[1] * (self.s_dim + 1), length_scale_bounds=np.array([1e-5, 1])) \
+               * RBF(length_scale=[1] * (self.s_dim + 1), length_scale_bounds=np.array([0.2, 1])) \
                + WhiteKernel(noise_level=1e-5)
         #gp = GaussianProcessRegressor(kernel=kern, optimizer=None)
         gp = GaussianProcessRegressor(kernel=kern, n_restarts_optimizer=10)

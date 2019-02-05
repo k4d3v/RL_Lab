@@ -42,7 +42,7 @@ class PILCO:
 
         # Initial J random rollouts
         data = []
-        old_policy, policy = Policy(env), Policy(env)
+        old_policy, policy = Policy(env, plot_pol=True), Policy(env)
         for j in range(self.J):
             # Sample controller params
             policy = Policy(env)
@@ -148,8 +148,8 @@ class PILCO:
                 T_inv *= sigma_c**(-2)
                 """
                 C = np.mat(np.array([[1, l_p, 0], [0, 0, l_p]]))
-                #T_inv = (sigma_c ** -2) * C.T * C # TODO: Inverse is too big!
-                T_inv = np.eye(3)
+                T_inv = (sigma_c ** -2) * C.T * C # TODO: Inverse is too big!
+                #T_inv = np.eye(3)
 
                 # Use only first 3 dims
                 mu_t = mu_t[:-2]
@@ -189,8 +189,8 @@ class PILCO:
 
             # Generate initial test input
             # Generate input close to prior distribution
-            mean_samp = np.mean(self.x_s, axis=0)
-            std_samp = np.std(self.x_s, axis=0)
+            #mean_samp = np.mean(self.x_s, axis=0)
+            #std_samp = np.std(self.x_s, axis=0)
             #x0 = np.random.multivariate_normal(mean_samp, np.diag(std_samp))
             x0 = self.x_s[randint(0, dyn_model.N - 1)]
             # Get action from policy based on the state
@@ -362,6 +362,7 @@ class PILCO:
             beta[:, a] = np.dot(K_inv[a], y[:, a]).reshape(-1, )  # TODO: Fix (Values are too big)
             mu_delta[a] = np.dot(beta[:, a].reshape(-1, 1).T, q[:, a].reshape(-1, 1))
 
+        """
         # calculate Sigma_delta (Is symmetric!)
         Sigma_delta = np.zeros((D, D))
         for a in range(D):
@@ -404,7 +405,9 @@ class PILCO:
 
         # For debugging
         ew_cov, _ = np.linalg.eig(cov+cov.T)
-
+        """
+        Sigma_delta = Sigma_t_1
+        cov = np.zeros((D,D))
         #print("Done approximating mu and sigma delta, ", timer() - start)
         return mu_delta, Sigma_delta, cov
 
@@ -489,11 +492,15 @@ class PILCO:
         for atraj in data[:-1]:
             states = [point[0] for point in atraj]
             for s in states:
-                i = 0
+                # Start at second trajectory point
+                i = 1
                 states_new = [point[0] for point in data[-1]]
                 while i < len(states_new):
                     # Delete redundant state from last traj
                     if np.all(np.abs(s - states_new[i]) < 5e-2):
+                        # Store action
+                        data[-1][i-1][1] += data[-1][i][1]
+
                         print("Deleted redundant state.")
                         del data[-1][i]
                         del states_new[i]
