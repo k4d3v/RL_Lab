@@ -19,21 +19,25 @@ class Policy():
         self.env = env
         self.s_dim = self.env.observation_space.shape[0]
         self.n_basis = n_basis
+
         # Init. random control param.s
 
         # Weights: Ranging from min to max action
         # TODO: How to ensure that sum of RBFs is between -25 and 25?
         self.w_min = self.env.action_space.low
         self.w_max = self.env.action_space.high
-        ws = np.linspace(self.w_max, self.w_min, self.n_basis)
+        ws = np.linspace(1, -1, self.n_basis)
         W = Variable(torch.Tensor(ws), requires_grad=True)
 
         # Lengths: Random between 0 and 1
-        Lambdi = np.random.uniform(size=self.s_dim)
+        Lambdi = np.random.uniform(0, 0.01, size=self.s_dim)
         Lamb = Variable(torch.Tensor(np.diag(Lambdi)), requires_grad=True)
 
-        # Equidistant means based on the min and max values of the state space
-        mu_low, mu_high = self.get_mu_range()
+        # Equidistant means based on an initial observation (p.60 Deisenroth)
+        init = self.env.reset()
+        #mumat = np.random.multivariate_normal(init, np.diag([0.1] * self.s_dim), size=self.n_basis)
+        mu_low, mu_high = init-0.1, init+0.1
+        #mu_low, mu_high = self.get_mu_range()
         mumat = np.zeros((self.n_basis, self.s_dim))
         for d in range(self.s_dim):
             mumat[:, d] = np.linspace(mu_low[d], mu_high[d], self.n_basis)
@@ -66,9 +70,10 @@ class Policy():
         phi_x = np.exp(-0.5*prod).item()
         return phi_x
 
-    def rollout(self):
+    def rollout(self, random=False):
         """
         Samples a traj from performing actions based on the current policy
+        :param random: True, if actions are to be sampled randomly from the action space
         :return: Sampled trajs
         """
         start = timer()
@@ -87,8 +92,10 @@ class Policy():
             #self.env.render()
             point = []
 
-            action = self.get_action(np.asarray(observation))
-            #action = self.env.action_space.sample()
+            if not random:
+                action = self.get_action(np.asarray(observation))
+            else:
+                action = self.env.action_space.sample()
 
             point.append(observation)  # Save state to tuple
             point.append(action+old_action)  # Save action to tuple
@@ -98,7 +105,7 @@ class Policy():
             episode_reward += reward
 
             # Append point if it is far enough from the previous one
-            if not np.all(np.abs(observation - old_observation) < 5e-2):
+            if not np.all(np.abs(observation - old_observation) < 0.1):
                 traj.append(point)  # Add Tuple to traj
                 old_observation = observation
                 old_action = 0
@@ -156,7 +163,7 @@ class Policy():
         """
         new_Theta = self.param_array()
         old_Theta = old_policy.param_array()
-        return np.all(np.abs(new_Theta-old_Theta) < 1e-2)
+        return np.all(np.abs(new_Theta-old_Theta) < 0.1)
 
     def param_array(self):
         """
@@ -208,7 +215,7 @@ class Policy():
 
             plt.xlabel("In")
             plt.ylabel("Out")
-            plt.title("RBF Net, Dimension "+str(d))
+            plt.title("RBF Net of Policy, Dimension "+str(d))
 
             plt.show()
 

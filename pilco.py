@@ -16,7 +16,7 @@ from dyn_model import DynModel
 
 
 class PILCO:
-    def __init__(self, env_name, J=1, N=10):
+    def __init__(self, env_name, J=1, N=3, T_init=10):
         """
         :param env_name: Name of the environment
         :param J: Number of rollouts
@@ -26,6 +26,7 @@ class PILCO:
         self.env = gym.make(env_name)
         self.J = J
         self.N = N
+        self.T = T_init
 
     def train(self):
         """
@@ -48,7 +49,7 @@ class PILCO:
             policy = Policy(env)
 
             # Apply random control signals and record data
-            data.append(policy.rollout())
+            data.append(policy.rollout(True))
 
             # Delete redundant states across trajectories
             data = self.regularize(data)
@@ -89,6 +90,10 @@ class PILCO:
 
                 # Convergence check
                 if policy.check_convergence(old_policy):
+                    # Plot policy if converged
+                    policy.plot_rbf_net()
+                    # Increase time horizon
+                    self.T = int(self.T*1.25)
                     break
 
                 old_policy = policy
@@ -162,8 +167,8 @@ class PILCO:
 
                 # KIT: (3.45)
                 # TODO: fact is too small because of big T_inv and big sigma_t (Maybe predicted vals are still not quite true)
-                #fact = 1 / np.sqrt(np.linalg.det(IST))
-                fact = 1
+                fact = 1 / np.sqrt(np.linalg.det(IST))
+                #fact = 1
                 #print("Cost factor (Should be close to 1, if sigma is small): ", fact)
                 expo = np.exp(-0.5 * np.dot(np.dot((mu_t - x_target).T, S), (mu_t - x_target)))
                 E_x_t = 1 - fact * expo
@@ -192,7 +197,8 @@ class PILCO:
             #mean_samp = np.mean(self.x_s, axis=0)
             #std_samp = np.std(self.x_s, axis=0)
             #x0 = np.random.multivariate_normal(mean_samp, np.diag(std_samp))
-            x0 = self.x_s[randint(0, dyn_model.N - 1)]
+            #x0 = self.x_s[randint(0, dyn_model.N - 1)]
+            x0 = self.x_s[0]
             # Get action from policy based on the state
             lx0 = list(x0)
             lx0.append(apolicy.get_action(x0))
@@ -208,9 +214,9 @@ class PILCO:
             mu_t_1 = x0[:-1] + pred_mu[0]
             sigma_t_1 = np.diag([pred_Sigma[0]] * apolicy.s_dim)
 
-            print("Number of time steps: ", len(self.x_s))
+            print("Number of time steps: ", self.T)
             traj = [x0]
-            for t in range(len(self.x_s)):
+            for t in range(self.T):
                 #print("Time step ", t)
 
                 # (2)
@@ -301,7 +307,7 @@ class PILCO:
         :param x: Test input value
         :return: mu and sigma delta and cov of the predictive distribution
         """
-        #start = timer()
+        start = timer()
 
         # calculate mu_delta
         # init
@@ -362,7 +368,6 @@ class PILCO:
             beta[:, a] = np.dot(K_inv[a], y[:, a]).reshape(-1, )  # TODO: Fix (Values are too big)
             mu_delta[a] = np.dot(beta[:, a].reshape(-1, 1).T, q[:, a].reshape(-1, 1))
 
-        """
         # calculate Sigma_delta (Is symmetric!)
         Sigma_delta = np.zeros((D, D))
         for a in range(D):
@@ -405,10 +410,12 @@ class PILCO:
 
         # For debugging
         ew_cov, _ = np.linalg.eig(cov+cov.T)
-        """
-        Sigma_delta = Sigma_t_1
-        cov = np.zeros((D,D))
-        #print("Done approximating mu and sigma delta, ", timer() - start)
+
+        # For debugging
+        #Sigma_delta = Sigma_t_1
+        #cov = np.zeros((D,D))
+
+        print("Done approximating mu and sigma delta, ", timer() - start)
         return mu_delta, Sigma_delta, cov
 
     def compute_Q(self, a, b, v, mu_t, Sigma_t):
@@ -497,7 +504,7 @@ class PILCO:
                 states_new = [point[0] for point in data[-1]]
                 while i < len(states_new):
                     # Delete redundant state from last traj
-                    if np.all(np.abs(s - states_new[i]) < 5e-2):
+                    if np.all(np.abs(s - states_new[i]) < 0.1):
                         # Store action
                         data[-1][i-1][1] += data[-1][i][1]
 
@@ -511,6 +518,10 @@ class PILCO:
         return data
 
     def plot_traj(self, traj):
+        """
+        Plots a trajectory in s_dim+a_dim subplots
+        :param traj: Trajectory containing (s,a) pairs
+        """
         x = range(len(traj))
         for d in range(self.D+1):
             plt.subplot(self.D + 1, 1, d + 1)
