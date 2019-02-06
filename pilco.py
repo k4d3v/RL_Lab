@@ -16,7 +16,7 @@ from dyn_model import DynModel
 
 
 class PILCO:
-    def __init__(self, env_name, J=1, N=3, T_init=10):
+    def __init__(self, env_name, J=3, N=3, T_init=10):
         """
         :param env_name: Name of the environment
         :param J: Number of rollouts
@@ -309,7 +309,6 @@ class PILCO:
         """
         start = timer()
 
-        # calculate mu_delta
         # init
         n = dyn_model.N  # input (number of training data points)
         D = dyn_model.s_dim  # s_dim
@@ -343,29 +342,12 @@ class PILCO:
                 expo = np.exp((-1 / 2) * np.dot(np.dot(vi.T, np.linalg.inv(Sigma_t_1 + self.Lambda[a])), vi))
                 q[i][a] = fract * expo
 
-        # calculate K
-        # TODO: Maybe fix bugs in K computation
-        # self.Lambda = np.diag(length_scale)
-        K, K_inv = [], []  # K for all input und dimension, each term is also a matrix for all input and output
-        for a in range(D):
-            K_dim = np.full((n, n), self.alpha)  # K_dim tmp to save the result of every dimension
-            for i in range(n):
-                for j in range(i + 1, n):
-                    # (6)
-                    curr_x = (self.x_s[i] - self.x_s[j]).reshape(-1, 1)
-                    # self.x_s is x_schlange in paper,training input
-                    kern = (self.alpha ** 2) * np.exp(-0.5 * (np.dot(np.dot(curr_x.T, self.Lambda_inv[a]), curr_x)))
-                    K_dim[i][j] = kern
-                    K_dim[j][i] = kern
-            K.append(K_dim)
-            K_inv.append(np.linalg.inv(K_dim + dyn_model.noise * np.eye(n)))
-
         # calculate beta, under (14)
         # calculate mu_delta (14)
         beta = np.zeros((n, D))
         mu_delta = np.zeros(D)
         for a in range(D):
-            beta[:, a] = np.dot(K_inv[a], y[:, a]).reshape(-1, )  # TODO: Fix (Values are too big)
+            beta[:, a] = np.dot(self.K_inv[a], y[:, a]).reshape(-1, )  # TODO: Fix (Values are too big)
             mu_delta[a] = np.dot(beta[:, a].reshape(-1, 1).T, q[:, a].reshape(-1, 1))
 
         # calculate Sigma_delta (Is symmetric!)
@@ -388,7 +370,7 @@ class PILCO:
                     Sigma_delta[b][a] = entry
                 else:
                     # (23)
-                    E_var = self.alpha ** 2 - np.trace(np.dot(K_inv[a], Q)) + dyn_model.noise  # TODO: Too small
+                    E_var = self.alpha ** 2 - np.trace(np.dot(self.K_inv[a], Q)) + dyn_model.noise  # TODO: Too small
                     # (17)=(23)+(20)- mu_delta_a**2
                     Sigma_delta[a][b] = E_var + E_delta - mu_prod
 
@@ -428,7 +410,7 @@ class PILCO:
         :param Sigma_t: Predicted Sigma for t-1
         :return: n x n matrix Q
         """
-        #start = timer()
+        start = timer()
 
         n = len(self.x_s)
         D = len(self.x_s[0])
@@ -474,7 +456,7 @@ class PILCO:
                 Q_old[i][j] = frac*expo
                 """
 
-        #print("Done estimating Q, ", timer() - start)
+        print("Done estimating Q, ", timer() - start)
         return Q
 
     def prepare(self, dyn_model):
@@ -482,12 +464,44 @@ class PILCO:
         Define some important vars
         :param dyn_model: GP dynamics model
         """
+        start = timer()
+
         self.D = dyn_model.s_dim
         length_scale = dyn_model.lambs
         self.Lambda = [np.diag(np.array([length_scale[a]] * self.D)) for a in range(self.D)]
         self.Lambda_inv = [np.linalg.inv(Lamb) for Lamb in self.Lambda]
         self.alpha = dyn_model.alpha
         self.x_s = [ax[:-1] for ax in dyn_model.x]  # Training data
+        self.noise = dyn_model.noise
+        # Compute the Gram matrices and their inverse
+        self.compute_K()
+        print("Done precomputing K and K^-1, ", timer()-start)
+
+    def compute_K(self):
+        """
+        Precomputes the Gram matrix and its inverse for each dimension
+        """
+        D = self.D
+        n = len(self.x_s)
+        # calculate K
+        # TODO: Maybe fix bugs in K computation
+        # self.Lambda = np.diag(length_scale)
+        K, K_inv = [], []  # K for all input und dimension, each term is also a matrix for all input and output
+        for a in range(D):
+            K_dim = np.full((n, n), self.alpha)  # K_dim tmp to save the result of every dimension
+            for i in range(n):
+                for j in range(i + 1, n):
+                    # (6)
+                    curr_x = (self.x_s[i] - self.x_s[j]).reshape(-1, 1)
+                    # self.x_s is x_schlange in paper,training input
+                    kern = (self.alpha ** 2) * np.exp(-0.5 * (np.dot(np.dot(curr_x.T, self.Lambda_inv[a]), curr_x)))
+                    K_dim[i][j] = kern
+                    K_dim[j][i] = kern
+            K.append(K_dim)
+            K_inv.append(np.linalg.inv(K_dim + self.noise * np.eye(n)))
+
+        self.K = K
+        self.K_inv = K_inv
 
     def regularize(self, data):
         """
@@ -504,7 +518,7 @@ class PILCO:
                 states_new = [point[0] for point in data[-1]]
                 while i < len(states_new):
                     # Delete redundant state from last traj
-                    if np.all(np.abs(s - states_new[i]) < 0.1):
+                    if np.all(np.abs(s - states_new[i]) < 1e-2):
                         # Store action
                         data[-1][i-1][1] += data[-1][i][1]
 

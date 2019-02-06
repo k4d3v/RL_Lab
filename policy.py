@@ -105,7 +105,7 @@ class Policy():
             episode_reward += reward
 
             # Append point if it is far enough from the previous one
-            if not np.all(np.abs(observation - old_observation) < 0.1):
+            if not np.all(np.abs(observation - old_observation) < 1e-2):
                 traj.append(point)  # Add Tuple to traj
                 old_observation = observation
                 old_action = 0
