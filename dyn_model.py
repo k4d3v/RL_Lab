@@ -16,10 +16,8 @@ class DynModel:
     def __init__(self, s_dim, data, lambs=None):
         """
         :param s_dim: Dimension of states
-        :param x: Training inputs
-        :param y: Training outputs
+        :param data: Training inputs+outputs
         :param lambs: Hyperparam. for kernels (length-scale)
-        :param beta: Hyperparam. for covariance matrix
         """
         super().__init__()
         self.s_dim = s_dim

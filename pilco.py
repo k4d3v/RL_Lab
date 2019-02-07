@@ -11,12 +11,13 @@ from matplotlib import pyplot as plt
 import torch.optim as optim
 from random import randint
 
-from policy import Policy
+#from policy import Policy
+from gp_policy import GPPolicy as Policy
 from dyn_model import DynModel
 
 
 class PILCO:
-    def __init__(self, env_name, J=3, N=3, T_init=10):
+    def __init__(self, env_name, J=3, N=3, T_init=5):
         """
         :param env_name: Name of the environment
         :param J: Number of rollouts
@@ -43,14 +44,18 @@ class PILCO:
 
         # Initial J random rollouts
         data = []
-        old_policy, policy = Policy(env, plot_pol=True), Policy(env)
+        old_policy, policy = Policy(env), Policy(env)
         for j in range(self.J):
             # Sample controller params
             policy = Policy(env)
 
             # Apply random control signals and record data
             data.append(policy.rollout(True))
+            # Delete redundant states across trajectories
+            data = self.regularize(data)
 
+            # Apply random control signals and record data
+            data.append(policy.rollout())
             # Delete redundant states across trajectories
             data = self.regularize(data)
 
@@ -72,13 +77,14 @@ class PILCO:
                 print("Policy search iteration ", i)
 
                 # Loop over number of params
-                for p in range(3):
+                for p in range(policy.n_params):
 
                     all_params = policy.param_array()
 
                     # Approx. inference for policy evaluation (Sec. 2.2)
                     # Get J^pi(policy) (10-12), (24)
-                    J = self.get_J(dyn_model, all_params, p)
+                    #J = self.get_J(dyn_model, all_params, p)
+                    J = self.get_J(dyn_model, None, p)
 
                     # Policy improvement based on the gradient (Sec. 2.3)
                     # Get the gradient of J (26-30)
@@ -86,12 +92,12 @@ class PILCO:
                     dJ = self.get_dJ(all_params, p)
 
                     # Update policy (CG or L-BFGS)
-                    policy.update(J, dJ, p)
+                    policy.update(J, dJ, -1)
 
                 # Convergence check
                 if policy.check_convergence(old_policy):
                     # Plot policy if converged
-                    policy.plot_rbf_net()
+                    #policy.plot_rbf_net()
                     # Increase time horizon
                     self.T = int(self.T*1.25)
                     break
@@ -121,7 +127,7 @@ class PILCO:
             :return: expected return
             """
             astart = timer()
-            print("Current x:", param_array)
+            #print("Current x:", param_array)
 
             def compute_E_x_t(mu_t, sigma_t):
                 """
@@ -153,8 +159,8 @@ class PILCO:
                 T_inv *= sigma_c**(-2)
                 """
                 C = np.mat(np.array([[1, l_p, 0], [0, 0, l_p]]))
-                T_inv = (sigma_c ** -2) * C.T * C # TODO: Inverse is too big!
-                #T_inv = np.eye(3)
+                #T_inv = (sigma_c ** -2) * C.T * C # TODO: Inverse is too big!
+                T_inv = np.eye(3)
 
                 # Use only first 3 dims
                 mu_t = mu_t[:-2]
@@ -183,6 +189,7 @@ class PILCO:
             Ext_sum = Variable(torch.Tensor([[0]]), requires_grad=True)
 
             # Reconstruct policy
+            """
             apolicy = Policy(self.env)
             if p==0:
                 all_params[:apolicy.n_basis] = param_array
@@ -191,6 +198,16 @@ class PILCO:
             elif p==2:
                 all_params[apolicy.n_basis+apolicy.s_dim:] = param_array
             apolicy.assign_Theta(all_params)
+            """
+            apolicy = Policy(self.env)
+            if all_params is None:
+                apolicy.assign_Theta(param_array)
+            else:
+                if p == 0:
+                    all_params[:apolicy.s_dim*apolicy.n_basis] = param_array
+                elif p == 1:
+                    all_params[apolicy.s_dim*apolicy.n_basis:] = param_array
+                apolicy.assign_Theta(all_params)
 
             # Generate initial test input
             # Generate input close to prior distribution
@@ -204,15 +221,17 @@ class PILCO:
             lx0.append(apolicy.get_action(x0))
             x0 = np.array(lx0)
 
-            pred_mu, pred_Sigma = dyn_model.gp.predict([x0], return_std=True) # Model is overfitting! See Sigma!
+            #pred_mu, pred_Sigma = dyn_model.gp.predict([x0], return_std=True) # Model is overfitting! See Sigma!
             # Plot prediction
             #dyn_model.plot(x0, pred_mu, pred_Sigma)
 
             # Compute mu_t for t from 1 to T
             # (10)-(12)
             x_t_1 = x0
-            mu_t_1 = x0[:-1] + pred_mu[0]
-            sigma_t_1 = np.diag([pred_Sigma[0]] * apolicy.s_dim)
+            #mu_t_1 = x0[:-1] + pred_mu[0]
+            #sigma_t_1 = np.diag([pred_Sigma[0]] * apolicy.s_dim)
+            mu_t_1 = x0[:-1]
+            sigma_t_1 = np.diag([0]*apolicy.s_dim)
 
             print("Number of time steps: ", self.T)
             traj = [x0]
@@ -224,15 +243,18 @@ class PILCO:
                 Ext_sum_np += compute_E_x_t(mu_t_1, sigma_t_1)
                 Ext_sum = Variable(torch.Tensor(Ext_sum_np), requires_grad=True)
 
-                mu_delta, Sigma_delta, cov = self.approximate_p_delta_t(dyn_model, x_t_1)
+                #mu_delta, Sigma_delta, cov = self.approximate_p_delta_t(dyn_model, x_t_1)
                 # under 2.1
                 # (10)
-                mu_t = mu_t_1 + mu_delta
+                #mu_t = mu_t_1 + mu_delta
+                pred_mu, pred_Sigma = dyn_model.gp.predict([x_t_1], return_std=True)  # Model is overfitting! See Sigma!
+                mu_t = mu_t_1+pred_mu[0]
 
                 # (11)
                 # TODO: Fix (See Deisenroth)
-                sigma_t = sigma_t_1 + Sigma_delta + cov+cov.T
+                #sigma_t = sigma_t_1 + Sigma_delta + cov+cov.T
                 # Compute eigenvalues (for debugging)
+                sigma_t = np.diag([pred_Sigma[0]] * apolicy.s_dim)
                 ew,_ = np.linalg.eig(sigma_t)
 
                 x_t = np.random.multivariate_normal(mu_t, sigma_t)
@@ -313,20 +335,18 @@ class PILCO:
         n = dyn_model.N  # input (number of training data points)
         D = dyn_model.s_dim  # s_dim
 
-        # Predict mu and sigma for all test inputs
+        # Predict mu and sigma for test input
         # mu_schlange(t-1) is the mean of the "test" input distribution p(x[t-1],u[t-1])
         pred_mu, pred_Sigma = dyn_model.gp.predict([x], return_std=True)
         pred_results = (x[:-1] + pred_mu[0], pred_Sigma[0])
+        Sigma_t_1 = np.diag(np.array([pred_results[1]] * D))
 
         # Plot prediction
         #dyn_model.plot(x, pred_mu, pred_Sigma)
 
         q = np.zeros((n, D))
-        y = np.mat(dyn_model.y)  # output
+        y = np.mat(dyn_model.y)  # Training outputs
         v = np.zeros((n, D))
-
-        # TODO: Maybe return diag. matrix Sigma in dyn_model
-        Sigma_t_1 = np.diag(np.array([pred_results[1]] * D))
 
         # calculate q_ai
         for i in range(n):
@@ -347,8 +367,8 @@ class PILCO:
         beta = np.zeros((n, D))
         mu_delta = np.zeros(D)
         for a in range(D):
-            beta[:, a] = np.dot(self.K_inv[a], y[:, a]).reshape(-1, )  # TODO: Fix (Values are too big)
-            mu_delta[a] = np.dot(beta[:, a].reshape(-1, 1).T, q[:, a].reshape(-1, 1))
+            beta[:, a] = np.dot(self.K_inv[a], y[:, a]).reshape(-1, )
+            mu_delta[a] = np.inner(beta[:, a], q[:, a])
 
         # calculate Sigma_delta (Is symmetric!)
         Sigma_delta = np.zeros((D, D))
@@ -376,7 +396,7 @@ class PILCO:
 
         # Compute eigenvals for debugging
         ew, _ = np.linalg.eig(Sigma_delta)
-
+        
         # Compute covariance matrix (See (12)/ 2.70 Deisenroth)
         # TODO: Vectorize
         cov = np.zeros((D, D))
@@ -389,7 +409,7 @@ class PILCO:
                 prod = np.dot((bq * sig_inver), x_mu)
                 acol += prod
             cov[:, a] = acol
-
+        
         # For debugging
         ew_cov, _ = np.linalg.eig(cov+cov.T)
 
@@ -424,11 +444,11 @@ class PILCO:
         Q = np.zeros((n, n))
         # Q_old = np.zeros((n, n))
         for i in range(n):
-            ksi_i = self.x_s[i] - mu_t
+            ksi_i = (self.x_s[i] - mu_t).reshape(-1, 1)
             for j in range(i, n):
                 # Deisenroth implementation (eq. 2.53)
-                ksi_j = self.x_s[j] - mu_t
-                z_ij = (np.dot(self.Lambda_inv[a], ksi_i) + np.dot(self.Lambda_inv[b], ksi_j)).reshape(-1, 1)
+                ksi_j = (self.x_s[j] - mu_t).reshape(-1, 1)
+                z_ij = np.dot(self.Lambda_inv[a], ksi_i) + np.dot(self.Lambda_inv[b], ksi_j)
 
                 fst = 2 * (np.log(self.alpha) + np.log(self.alpha))
 
@@ -441,6 +461,7 @@ class PILCO:
                 Q[i][j] = entry
                 Q[j][i] = entry
 
+                # Old inefficient way
                 """
                 curr_xi = (self.x_s[i] - mu_t).reshape(-1, 1)
                 # self.x_s is x_schlange in paper,training input
@@ -464,8 +485,6 @@ class PILCO:
         Define some important vars
         :param dyn_model: GP dynamics model
         """
-        start = timer()
-
         self.D = dyn_model.s_dim
         length_scale = dyn_model.lambs
         self.Lambda = [np.diag(np.array([length_scale[a]] * self.D)) for a in range(self.D)]
@@ -475,12 +494,13 @@ class PILCO:
         self.noise = dyn_model.noise
         # Compute the Gram matrices and their inverse
         self.compute_K()
-        print("Done precomputing K and K^-1, ", timer()-start)
 
     def compute_K(self):
         """
         Precomputes the Gram matrix and its inverse for each dimension
         """
+        start = timer()
+
         D = self.D
         n = len(self.x_s)
         # calculate K
@@ -488,7 +508,7 @@ class PILCO:
         # self.Lambda = np.diag(length_scale)
         K, K_inv = [], []  # K for all input und dimension, each term is also a matrix for all input and output
         for a in range(D):
-            K_dim = np.full((n, n), self.alpha)  # K_dim tmp to save the result of every dimension
+            K_dim = np.full((n, n), self.alpha**2)  # K_dim tmp to save the result of every dimension
             for i in range(n):
                 for j in range(i + 1, n):
                     # (6)
@@ -502,6 +522,7 @@ class PILCO:
 
         self.K = K
         self.K_inv = K_inv
+        print("Done precomputing K and K^-1, ", timer() - start)
 
     def regularize(self, data):
         """

@@ -19,6 +19,7 @@ class Policy():
         self.env = env
         self.s_dim = self.env.observation_space.shape[0]
         self.n_basis = n_basis
+        self.n_params = 3
 
         # Init. random control param.s
 
@@ -26,7 +27,7 @@ class Policy():
         # TODO: How to ensure that sum of RBFs is between -25 and 25?
         self.w_min = self.env.action_space.low
         self.w_max = self.env.action_space.high
-        ws = np.linspace(1, -1, self.n_basis)
+        ws = np.linspace(4*self.w_max/self.n_basis, 4*self.w_min/self.n_basis, self.n_basis)
         W = Variable(torch.Tensor(ws), requires_grad=True)
 
         # Lengths: Random between 0 and 1
@@ -89,14 +90,14 @@ class Policy():
 
         while not done:
             # Show environment
-            #self.env.render()
+            self.env.render()
             point = []
 
             if not random:
                 action = self.get_action(np.asarray(observation))
             else:
                 action = self.env.action_space.sample()
-
+            action = self.get_action(np.asarray(observation))
             point.append(observation)  # Save state to tuple
             point.append(action+old_action)  # Save action to tuple
             observation, reward, done, _ = self.env.step(action)  # Take action
@@ -219,6 +220,12 @@ class Policy():
 
             plt.show()
 
+            plt.plot(range(len(states)), [self.get_action(st) for st in states])
+            plt.xlabel("State Nr.")
+            plt.ylabel("Chosen Action")
+            plt.title("Policy Actions Based on States")
+            plt.show()
+
             # Break because plots look same for each dim.
             break
         print("Done plotting policy net.")
@@ -235,3 +242,4 @@ class Policy():
         s_high[-2] = 10
         s_high[-1] = np.pi
         return s_low, s_high
+
