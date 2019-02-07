@@ -221,18 +221,14 @@ class PILCO:
             lx0.append(apolicy.get_action(x0))
             x0 = np.array(lx0)
 
-            #pred_mu, pred_Sigma = dyn_model.gp.predict([x0], return_std=True) # Model is overfitting! See Sigma!
-            # Plot prediction
-            #dyn_model.plot(x0, pred_mu, pred_Sigma)
-
-            # Compute mu_t for t from 1 to T
-            # (10)-(12)
             x_t_1 = x0
             #mu_t_1 = x0[:-1] + pred_mu[0]
             #sigma_t_1 = np.diag([pred_Sigma[0]] * apolicy.s_dim)
             mu_t_1 = x0[:-1]
             sigma_t_1 = np.diag([0]*apolicy.s_dim)
 
+            # Compute mu_t for t from 1 to T
+            # (10)-(12)
             print("Number of time steps: ", self.T)
             traj = [x0]
             for t in range(self.T):
