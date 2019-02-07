@@ -139,7 +139,7 @@ class PILCO:
                 #start = timer()
 
                 # defined according to the model
-                x_target = np.zeros(3)  # target state
+                x_target = np.array([0, 0, -1])  # target state
                 sigma_c = 0.25  # control the width of cost function, top right of page 4
                 # in KIT's paper,sigma_c is represented by a,in the example on page 64, a=  0.25
                 l_p = 0.6413  # pendulum length, l_p = 0.6413 m, see User Manual
@@ -159,8 +159,8 @@ class PILCO:
                 T_inv *= sigma_c**(-2)
                 """
                 C = np.mat(np.array([[1, l_p, 0], [0, 0, l_p]]))
-                #T_inv = (sigma_c ** -2) * C.T * C # TODO: Inverse is too big!
-                T_inv = np.eye(3)
+                T_inv = (sigma_c ** -2) * C.T * C # TODO: Inverse is too big!
+                #T_inv = np.eye(3)
 
                 # Use only first 3 dims
                 mu_t = mu_t[:-2]
