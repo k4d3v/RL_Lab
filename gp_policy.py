@@ -19,6 +19,8 @@ class GPPolicy:
         super().__init__()
         self.env = env
         self.s_dim = env.observation_space.shape[0]
+        self.a_dim = env.action_space.shape[0]
+        self.a_max = self.env.action_space.high
         self.n_basis = n_basis
         #self.n_params = 2
         self.n_params = 1
@@ -62,9 +64,16 @@ class GPPolicy:
         :param x: Observation
         :return: Control
         """
-        a_max = self.env.action_space.high
         # Squash action through sin to achieve a in [-a_max, a_max]
-        return a_max*np.sin(self.gp.predict([x]))
+        return self.a_max*np.sin(self.gp.predict([x]))
+
+    def get_raw_action(self, x):
+        """
+        Returns a single unsquashed control based on observation x
+        :param x: Observation
+        :return: Control
+        """
+        return self.gp.predict([x])
 
     def assign_Theta(self, params):
         """

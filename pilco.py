@@ -11,13 +11,13 @@ from matplotlib import pyplot as plt
 import torch.optim as optim
 from random import randint
 
-#from policy import Policy
+# from policy import Policy
 from gp_policy import GPPolicy as Policy
 from dyn_model import DynModel
 
 
 class PILCO:
-    def __init__(self, env_name, J=2, N=3, T_init=50):
+    def __init__(self, env_name, J=1, N=3, T_init=50):
         """
         :param env_name: Name of the environment
         :param J: Number of rollouts
@@ -67,10 +67,7 @@ class PILCO:
             dyn_model = DynModel(s_dim, data)
             print("Average GP error: ", dyn_model.training_error_gp())
             # Plot learnt model
-            dyn_model.plot()
-
-            # Store some vars for convenience
-            self.prepare(dyn_model)
+            #dyn_model.plot()
 
             i = 0
             while True:
@@ -78,12 +75,11 @@ class PILCO:
 
                 # Loop over number of params
                 for p in range(policy.n_params):
-
                     all_params = policy.param_array()
 
                     # Approx. inference for policy evaluation (Sec. 2.2)
                     # Get J^pi(policy) (10-12), (24)
-                    #J = self.get_J(dyn_model, all_params, p)
+                    # J = self.get_J(dyn_model, all_params, p)
                     J = self.get_J(dyn_model, None, p)
 
                     # Policy improvement based on the gradient (Sec. 2.3)
@@ -97,9 +93,9 @@ class PILCO:
                 # Convergence check
                 if policy.check_convergence(old_policy):
                     # Plot policy if converged
-                    #policy.plot_rbf_net()
+                    # policy.plot_rbf_net()
                     # Increase time horizon
-                    self.T = int(self.T*1.25)
+                    self.T = int(self.T * 1.25)
                     break
 
                 old_policy = policy
@@ -120,6 +116,7 @@ class PILCO:
         :param p: Starting index of the parameters for optimization
         :return: Function for estimating J (Expected values)
         """
+
         def J(param_array):
             """
             A function which computes the expected return for a policy
@@ -127,7 +124,8 @@ class PILCO:
             :return: expected return
             """
             astart = timer()
-            #print("Current x:", param_array)
+
+            # print("Current x:", param_array)
 
             def compute_E_x_t(mu_t, sigma_t):
                 """
@@ -136,7 +134,7 @@ class PILCO:
                 :param sigma_t: Sigma at time step t
                 :return: E_x_t : expected return at t
                 """
-                #start = timer()
+                # start = timer()
 
                 # defined according to the model
                 x_target = np.array([0, 0, -1])  # target state
@@ -159,8 +157,8 @@ class PILCO:
                 T_inv *= sigma_c**(-2)
                 """
                 C = np.mat(np.array([[1, l_p, 0], [0, 0, l_p]]))
-                T_inv = (sigma_c ** -2) * C.T * C # TODO: Inverse is too big!
-                #T_inv = np.eye(3)
+                T_inv = (sigma_c ** -2) * C.T * C  # TODO: Inverse is too big!
+                # T_inv = np.eye(3)
 
                 # Use only first 3 dims
                 mu_t = mu_t[:-2]
@@ -174,16 +172,17 @@ class PILCO:
                 # KIT: (3.45)
                 # TODO: fact is too small because of big T_inv and big sigma_t (Maybe predicted vals are still not quite true)
                 fact = 1 / np.sqrt(np.linalg.det(IST))
-                #fact = 1
-                #print("Cost factor (Should be close to 1, if sigma is small): ", fact)
+                # fact = 1
+                # print("Cost factor (Should be close to 1, if sigma is small): ", fact)
                 expo = np.exp(-0.5 * np.dot(np.dot((mu_t - x_target).T, S), (mu_t - x_target)))
                 E_x_t = 1 - fact * expo
 
                 # TODO: E_x_t should be 0, if target is reached!
                 # For debugging
-                E_x_t_target = 1 - fact * np.exp(-0.5 * np.dot(np.dot((x_target - x_target).T, S), (x_target - x_target)))
+                E_x_t_target = 1 - fact * np.exp(
+                    -0.5 * np.dot(np.dot((x_target - x_target).T, S), (x_target - x_target)))
 
-                #print("Ext done", timer() - start)
+                # print("Ext done", timer() - start)
                 return E_x_t
 
             Ext_sum = Variable(torch.Tensor([[0]]), requires_grad=True)
@@ -204,60 +203,81 @@ class PILCO:
                 apolicy.assign_Theta(param_array)
             else:
                 if p == 0:
-                    all_params[:apolicy.s_dim*apolicy.n_basis] = param_array
+                    all_params[:apolicy.s_dim * apolicy.n_basis] = param_array
                 elif p == 1:
-                    all_params[apolicy.s_dim*apolicy.n_basis:] = param_array
+                    all_params[apolicy.s_dim * apolicy.n_basis:] = param_array
                 apolicy.assign_Theta(all_params)
+
+            # Store some vars for convenience
+            self.prepare(apolicy)
 
             # Generate initial test input
             # Generate input close to prior distribution
-            #mean_samp = np.mean(self.x_s, axis=0)
-            #std_samp = np.std(self.x_s, axis=0)
-            #x0 = np.random.multivariate_normal(mean_samp, np.diag(std_samp))
-            #x0 = self.x_s[randint(0, dyn_model.N - 1)]
-            x0 = self.x_s[0]
+            #x_s = [ax[:-1] for ax in dyn_model.x]  # Training data
+            # mean_samp = np.mean(x_s, axis=0)
+            # std_samp = np.std(.x_s, axis=0)
+            # x0 = np.random.multivariate_normal(mean_samp, np.diag(std_samp))
+            # x0 = x_s[randint(0, dyn_model.N - 1)]
+
+            # First state is known, predictive mean of action can be computed and variance is zero (p.44 Deisenroth)
+            x0 = dyn_model.x[0][:-1]
             # Get action from policy based on the state
             lx0 = list(x0)
             lx0.append(apolicy.get_action(x0))
             x0 = np.array(lx0)
 
             x_t_1 = x0
-            #mu_t_1 = x0[:-1] + pred_mu[0]
-            #sigma_t_1 = np.diag([pred_Sigma[0]] * apolicy.s_dim)
+            # mu_t_1 = x0[:-1] + pred_mu[0]
+            # sigma_t_1 = np.diag([pred_Sigma[0]] * apolicy.s_dim)
             mu_t_1 = x0[:-1]
-            sigma_t_1 = np.diag([0]*apolicy.s_dim)
+            sigma_t_1 = np.diag([0] * apolicy.s_dim)
 
             # Compute mu_t for t from 1 to T
             # (10)-(12)
             print("Number of time steps: ", self.T)
             traj = [x0]
             for t in range(self.T):
-                #print("Time step ", t)
+                # print("Time step ", t)
 
                 # (2)
                 Ext_sum_np = Ext_sum.detach().numpy()
                 Ext_sum_np += compute_E_x_t(mu_t_1, sigma_t_1)
                 Ext_sum = Variable(torch.Tensor(Ext_sum_np), requires_grad=True)
 
-                #mu_delta, Sigma_delta, cov = self.approximate_p_delta_t(dyn_model, x_t_1)
                 # under 2.1
                 # (10)
-                #mu_t = mu_t_1 + mu_delta
-                pred_mu, pred_Sigma = dyn_model.predict([x_t_1])  # Model is overfitting! See Sigma!
-                mu_t = mu_t_1+pred_mu[0]
+                pred_mu, pred_Sigma = dyn_model.predict([x_t_1])  # Predict mean and var for next state
+                mu_t = mu_t_1 + pred_mu[0]
 
                 # (11)
                 # TODO: Fix (See Deisenroth)
-                #sigma_t = sigma_t_1 + Sigma_delta + cov+cov.T
                 # Compute eigenvalues (for debugging)
                 sigma_t = np.diag(pred_Sigma[0])
-                ew,_ = np.linalg.eig(sigma_t)
+                ew, _ = np.linalg.eig(sigma_t)
 
-                x_t = np.random.multivariate_normal(mu_t, sigma_t)
+                # Next state is gaussian distributed,
+                # so the predictive mean and covariance of the action have to be computed (Deisenroth p.45)
+                mu_u, Sigma_u, crosscov = self.approximate_p_delta_t(dyn_model, apolicy, x_t_1)
+                mu_squashed_u = np.exp(-Sigma_u/2)*apolicy.a_max*np.sin(mu_u)
+
+                # Compute joint distribution of x_t_1 and the unsquashed action distribution
+                mu_joint = np.concatenate((mu_t, mu_u))
+                Sigma_joint = np.zeros((apolicy.s_dim+apolicy.a_dim, apolicy.s_dim+apolicy.a_dim))
+                for a in range(apolicy.s_dim):
+                    for b in range(apolicy.s_dim):
+                        Sigma_joint[a][b] = sigma_t[a][b]
+                for aa in range(a+1, a+1+apolicy.a_dim):
+                    for bb in range(b+1, b+1+apolicy.a_dim):
+                        Sigma_joint[aa][bb] = Sigma_u
+
+                x_t = np.random.multivariate_normal(mu_t, sigma_t)  # Sample state x from predicted distribution
                 # Get action from policy based on the state
                 lx = list(x_t)
                 lx.append(apolicy.get_action(x_t))
                 x_t = np.array(lx)
+
+                # mu_t = mu_t_1 + mu_delta
+                # sigma_t = sigma_t_1 + Sigma_delta + cov+cov.T
 
                 # Update x, mu and sigma
                 traj.append(x_t)
@@ -274,7 +294,7 @@ class PILCO:
             print("J done, ", timer() - astart)
 
             # Plot trajectory
-            #self.plot_traj(traj)
+            # self.plot_traj(traj)
 
             self.Ext_sum = Ext_sum
             return Ext_sum.item()
@@ -289,6 +309,7 @@ class PILCO:
         :param p: Denotes which params are to be varied
         :return: function dJ
         """
+
         def dJ(param_array):
             """
             :param param_array: Array containing the initial parameters for optimization
@@ -318,18 +339,20 @@ class PILCO:
         # Return the function for computing the gradients
         return dJ
 
-    def approximate_p_delta_t(self, dyn_model, x):
+    def approximate_p_delta_t(self, dyn_model, policy, x):
         """
-        Approximates the predictive t-step distribution
+        Approximates the predictive distribution for a Gaussian-sampled x
         :param dyn_model: GP dynamics model
+        :param policy: Current policy
         :param x: Test input value
         :return: mu and sigma delta and cov of the predictive distribution
         """
         start = timer()
 
         # init
-        n = dyn_model.N  # input (number of training data points)
-        D = dyn_model.s_dim  # s_dim
+        n = policy.n_basis # input (number of training data points)
+        iD = policy.s_dim
+        D = policy.a_dim  # s_dim
 
         # Predict mu and sigma for test input
         # mu_schlange(t-1) is the mean of the "test" input distribution p(x[t-1],u[t-1])
@@ -338,11 +361,12 @@ class PILCO:
         Sigma_t_1 = np.diag(pred_results[1])
 
         # Plot prediction
-        #dyn_model.plot(x, pred_mu, pred_Sigma)
+        # dyn_model.plot(x, pred_mu, pred_Sigma)
 
         q = np.zeros((n, D))
-        y = np.mat(dyn_model.y)  # Training outputs
-        v = np.zeros((n, D))
+        #y = np.mat(policy.y)  # Training outputs
+        y = policy.y.reshape(-1, 1)
+        v = np.zeros((n, iD))
 
         # calculate q_ai
         for i in range(n):
@@ -352,7 +376,7 @@ class PILCO:
 
             for a in range(D):
                 # (15)
-                fract = (self.alpha[a] ** 2) / np.sqrt(np.linalg.det(np.dot(Sigma_t_1, self.Lambda_inv[a]) + np.eye(D)))
+                fract = (self.alpha ** 2) / np.sqrt(np.linalg.det(np.dot(Sigma_t_1, self.Lambda_inv[a]) + np.eye(D)))
                 vi = v[i].reshape(-1, 1)
                 # Sigma[t-1] is variances at time t-1 from GP
                 expo = np.exp((-1 / 2) * np.dot(np.dot(vi.T, np.linalg.inv(Sigma_t_1 + self.Lambda[a])), vi))
@@ -363,8 +387,8 @@ class PILCO:
         beta = np.zeros((n, D))
         mu_delta = np.zeros(D)
         for a in range(D):
-            beta[:, a] = np.dot(self.K_inv[a], y[:, a]).reshape(-1, )
-            mu_delta[a] = np.inner(beta[:, a], q[:, a])
+            beta[:, a] = np.dot(self.K_inv[a], y).reshape(-1, )
+            mu_delta[a] = np.inner(beta[:, a], q[:, a]).reshape(-1, )
 
         # calculate Sigma_delta (Is symmetric!)
         Sigma_delta = np.zeros((D, D))
@@ -372,7 +396,7 @@ class PILCO:
             beta_a = beta[:, a].reshape(-1, 1)
             for b in range(a, D):
                 # Compute Q
-                Q = self.compute_Q(a, b, v, pred_results[0], np.diag(np.array([pred_results[1]] * D)))
+                Q = self.compute_Q(a, b, v, pred_results[0], Sigma_t_1)
 
                 beta_b = beta[:, b].reshape(-1, 1)
 
@@ -386,32 +410,33 @@ class PILCO:
                     Sigma_delta[b][a] = entry
                 else:
                     # (23)
-                    E_var = self.alpha[a] ** 2 - np.trace(np.dot(self.K_inv[a], Q)) + dyn_model.noise[a]  # TODO: Too small
+                    E_var = self.alpha ** 2 - np.trace(np.dot(self.K_inv[a], Q)) + self.noise  # TODO: Too small
                     # (17)=(23)+(20)- mu_delta_a**2
-                    Sigma_delta[a][b] = E_var + E_delta - mu_prod
+                    Sigma_delta[a][b] = E_var + E_delta - mu_prod if D>1 else E_delta-mu_prod
 
         # Compute eigenvals for debugging
         ew, _ = np.linalg.eig(Sigma_delta)
-        
+
         # Compute covariance matrix (See (12)/ 2.70 Deisenroth)
         # TODO: Vectorize
         cov = np.zeros((D, D))
-        for a in range(D):
-            sig_inver = np.dot(Sigma_t_1, np.linalg.inv(Sigma_t_1 + self.Lambda[a]))
-            acol = 0
-            for i in range(n):
-                bq = beta[:, a][i] * q[:, a][i]
-                x_mu = self.x_s[i] - pred_results[0]
-                prod = np.dot((bq * sig_inver), x_mu)
-                acol += prod
-            cov[:, a] = acol
-        
-        # For debugging
-        ew_cov, _ = np.linalg.eig(cov+cov.T)
+        if D > 1:
+            for a in range(D):
+                sig_inver = np.dot(Sigma_delta, np.linalg.inv(Sigma_delta + self.Lambda[a]))
+                acol = 0
+                for i in range(n):
+                    bq = beta[:, a][i] * q[:, a][i]
+                    x_mu = self.x_s[i] - pred_results[0]
+                    prod = np.dot((bq * sig_inver), x_mu)
+                    acol += prod
+                cov[:, a] = acol
 
         # For debugging
-        #Sigma_delta = Sigma_t_1
-        #cov = np.zeros((D,D))
+        ew_cov, _ = np.linalg.eig(cov + cov.T)
+
+        # For debugging
+        # Sigma_delta = Sigma_t_1
+        # cov = np.zeros((D,D))
 
         print("Done approximating mu and sigma delta, ", timer() - start)
         return mu_delta, Sigma_delta, cov
@@ -446,7 +471,7 @@ class PILCO:
                 ksi_j = (self.x_s[j] - mu_t).reshape(-1, 1)
                 z_ij = np.dot(self.Lambda_inv[a], ksi_i) + np.dot(self.Lambda_inv[b], ksi_j)
 
-                fst = 2 * (np.log(self.alpha[a]) + np.log(self.alpha[b]))
+                fst = 2 * (np.log(self.alpha) + np.log(self.alpha))
 
                 snd_1 = np.dot(np.dot(ksi_i.T, self.Lambda_inv[a]), ksi_i)
                 snd_2 = np.dot(np.dot(ksi_j.T, self.Lambda_inv[b]), ksi_j)
@@ -476,45 +501,45 @@ class PILCO:
         print("Done estimating Q, ", timer() - start)
         return Q
 
-    def prepare(self, dyn_model):
+    def prepare(self, policy):
         """
         Define some important vars
-        :param dyn_model: GP dynamics model
+        :param policy: GP policy
         """
-        self.D = dyn_model.s_dim
-        length_scale = dyn_model.lambs
+        self.D = policy.s_dim
+        length_scale = policy.lambs
         self.Lambda = [np.diag(np.array([length_scale[a]] * self.D)) for a in range(self.D)]
         self.Lambda_inv = [np.linalg.inv(Lamb) for Lamb in self.Lambda]
-        self.alpha = dyn_model.alpha
-        self.x_s = [ax[:-1] for ax in dyn_model.x]  # Training data
-        self.noise = dyn_model.noise
-        # Compute the Gram matrices and their inverse
+        self.alpha = policy.alpha
+        self.x_s = policy.x  # Training data
+        self.noise = policy.noise
+        # Compute Gram matrix and its inverse for each dimension
         self.compute_K()
 
     def compute_K(self):
         """
-        Precomputes the Gram matrix and its inverse for each dimension
+        Precomputes the Gram matrix of the policy and its inverse for each dimension
         """
         start = timer()
 
         D = self.D
         n = len(self.x_s)
+
         # calculate K
         # TODO: Maybe fix bugs in K computation
-        # self.Lambda = np.diag(length_scale)
         K, K_inv = [], []  # K for all input und dimension, each term is also a matrix for all input and output
         for a in range(D):
-            K_dim = np.full((n, n), self.alpha[a]**2)  # K_dim tmp to save the result of every dimension
+            K_dim = np.full((n, n), self.alpha ** 2)  # K_dim tmp to save the result of every dimension
             for i in range(n):
                 for j in range(i + 1, n):
                     # (6)
                     curr_x = (self.x_s[i] - self.x_s[j]).reshape(-1, 1)
                     # self.x_s is x_schlange in paper,training input
-                    kern = (self.alpha[a] ** 2) * np.exp(-0.5 * (np.dot(np.dot(curr_x.T, self.Lambda_inv[a]), curr_x)))
+                    kern = (self.alpha ** 2) * np.exp(-0.5 * (np.dot(np.dot(curr_x.T, self.Lambda_inv[a]), curr_x)))
                     K_dim[i][j] = kern
                     K_dim[j][i] = kern
             K.append(K_dim)
-            K_inv.append(np.linalg.inv(K_dim + self.noise[a] * np.eye(n)))
+            K_inv.append(np.linalg.inv(K_dim + self.noise * np.eye(n)))
 
         self.K = K
         self.K_inv = K_inv
@@ -537,7 +562,7 @@ class PILCO:
                     # Delete redundant state from last traj
                     if np.all(np.abs(s - states_new[i]) < 1e-2):
                         # Store action
-                        data[-1][i-1][1] += data[-1][i][1]
+                        data[-1][i - 1][1] += data[-1][i][1]
 
                         print("Deleted redundant state.")
                         del data[-1][i]
@@ -554,11 +579,11 @@ class PILCO:
         :param traj: Trajectory containing (s,a) pairs
         """
         x = range(len(traj))
-        for d in range(self.D+1):
+        for d in range(self.D + 1):
             plt.subplot(self.D + 1, 1, d + 1)
             y_d = np.array([ay[d] for ay in traj])
             plt.plot(x, y_d)
             plt.xlabel("Time Step")
-            plt.ylabel("Pred. s "+str(d)) if d<self.D else plt.ylabel("Pred. a")
+            plt.ylabel("Pred. s " + str(d)) if d < self.D else plt.ylabel("Pred. a")
         plt.suptitle("Predicted Trajectories for each Dimension")
         plt.show()
