@@ -62,7 +62,9 @@ class GPPolicy:
         :param x: Observation
         :return: Control
         """
-        return self.gp.predict([x])
+        a_max = self.env.action_space.high
+        # Squash action through sin to achieve a in [-a_max, a_max]
+        return a_max*np.sin(self.gp.predict([x]))
 
     def assign_Theta(self, params):
         """
