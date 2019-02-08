@@ -17,7 +17,7 @@ from dyn_model import DynModel
 
 
 class PILCO:
-    def __init__(self, env_name, J=3, N=3, T_init=5):
+    def __init__(self, env_name, J=2, N=3, T_init=50):
         """
         :param env_name: Name of the environment
         :param J: Number of rollouts
@@ -243,14 +243,14 @@ class PILCO:
                 # under 2.1
                 # (10)
                 #mu_t = mu_t_1 + mu_delta
-                pred_mu, pred_Sigma = dyn_model.gp.predict([x_t_1], return_std=True)  # Model is overfitting! See Sigma!
+                pred_mu, pred_Sigma = dyn_model.predict([x_t_1])  # Model is overfitting! See Sigma!
                 mu_t = mu_t_1+pred_mu[0]
 
                 # (11)
                 # TODO: Fix (See Deisenroth)
                 #sigma_t = sigma_t_1 + Sigma_delta + cov+cov.T
                 # Compute eigenvalues (for debugging)
-                sigma_t = np.diag([pred_Sigma[0]] * apolicy.s_dim)
+                sigma_t = np.diag(pred_Sigma[0])
                 ew,_ = np.linalg.eig(sigma_t)
 
                 x_t = np.random.multivariate_normal(mu_t, sigma_t)
@@ -333,9 +333,9 @@ class PILCO:
 
         # Predict mu and sigma for test input
         # mu_schlange(t-1) is the mean of the "test" input distribution p(x[t-1],u[t-1])
-        pred_mu, pred_Sigma = dyn_model.gp.predict([x], return_std=True)
+        pred_mu, pred_Sigma = dyn_model.predict([x])
         pred_results = (x[:-1] + pred_mu[0], pred_Sigma[0])
-        Sigma_t_1 = np.diag(np.array([pred_results[1]] * D))
+        Sigma_t_1 = np.diag(pred_results[1])
 
         # Plot prediction
         #dyn_model.plot(x, pred_mu, pred_Sigma)
@@ -352,7 +352,7 @@ class PILCO:
 
             for a in range(D):
                 # (15)
-                fract = (self.alpha ** 2) / np.sqrt(np.linalg.det(np.dot(Sigma_t_1, self.Lambda_inv[a]) + np.eye(D)))
+                fract = (self.alpha[a] ** 2) / np.sqrt(np.linalg.det(np.dot(Sigma_t_1, self.Lambda_inv[a]) + np.eye(D)))
                 vi = v[i].reshape(-1, 1)
                 # Sigma[t-1] is variances at time t-1 from GP
                 expo = np.exp((-1 / 2) * np.dot(np.dot(vi.T, np.linalg.inv(Sigma_t_1 + self.Lambda[a])), vi))
@@ -386,7 +386,7 @@ class PILCO:
                     Sigma_delta[b][a] = entry
                 else:
                     # (23)
-                    E_var = self.alpha ** 2 - np.trace(np.dot(self.K_inv[a], Q)) + dyn_model.noise  # TODO: Too small
+                    E_var = self.alpha[a] ** 2 - np.trace(np.dot(self.K_inv[a], Q)) + dyn_model.noise[a]  # TODO: Too small
                     # (17)=(23)+(20)- mu_delta_a**2
                     Sigma_delta[a][b] = E_var + E_delta - mu_prod
 
@@ -446,7 +446,7 @@ class PILCO:
                 ksi_j = (self.x_s[j] - mu_t).reshape(-1, 1)
                 z_ij = np.dot(self.Lambda_inv[a], ksi_i) + np.dot(self.Lambda_inv[b], ksi_j)
 
-                fst = 2 * (np.log(self.alpha) + np.log(self.alpha))
+                fst = 2 * (np.log(self.alpha[a]) + np.log(self.alpha[b]))
 
                 snd_1 = np.dot(np.dot(ksi_i.T, self.Lambda_inv[a]), ksi_i)
                 snd_2 = np.dot(np.dot(ksi_j.T, self.Lambda_inv[b]), ksi_j)
@@ -504,17 +504,17 @@ class PILCO:
         # self.Lambda = np.diag(length_scale)
         K, K_inv = [], []  # K for all input und dimension, each term is also a matrix for all input and output
         for a in range(D):
-            K_dim = np.full((n, n), self.alpha**2)  # K_dim tmp to save the result of every dimension
+            K_dim = np.full((n, n), self.alpha[a]**2)  # K_dim tmp to save the result of every dimension
             for i in range(n):
                 for j in range(i + 1, n):
                     # (6)
                     curr_x = (self.x_s[i] - self.x_s[j]).reshape(-1, 1)
                     # self.x_s is x_schlange in paper,training input
-                    kern = (self.alpha ** 2) * np.exp(-0.5 * (np.dot(np.dot(curr_x.T, self.Lambda_inv[a]), curr_x)))
+                    kern = (self.alpha[a] ** 2) * np.exp(-0.5 * (np.dot(np.dot(curr_x.T, self.Lambda_inv[a]), curr_x)))
                     K_dim[i][j] = kern
                     K_dim[j][i] = kern
             K.append(K_dim)
-            K_inv.append(np.linalg.inv(K_dim + self.noise * np.eye(n)))
+            K_inv.append(np.linalg.inv(K_dim + self.noise[a] * np.eye(n)))
 
         self.K = K
         self.K_inv = K_inv
