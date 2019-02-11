@@ -256,19 +256,12 @@ class PILCO:
 
                 # Next state is gaussian distributed,
                 # so the predictive mean and covariance of the action have to be computed (Deisenroth p.45)
-                mu_pred = apolicy.get_action(mu_t)
                 mu_u, Sigma_u, crosscov = self.approximate_p_delta_t(dyn_model, apolicy, x_t_1)
                 mu_squashed_u = np.exp(-Sigma_u/2)*apolicy.a_max*np.sin(mu_u)
 
                 # Compute joint distribution of x_t_1 and the unsquashed action distribution
                 mu_joint = np.concatenate((mu_t, mu_u))
-                Sigma_joint = np.zeros((apolicy.s_dim+apolicy.a_dim, apolicy.s_dim+apolicy.a_dim))
-                for a in range(apolicy.s_dim):
-                    for b in range(apolicy.s_dim):
-                        Sigma_joint[a][b] = sigma_t[a][b]
-                for aa in range(a+1, a+1+apolicy.a_dim):
-                    for bb in range(b+1, b+1+apolicy.a_dim):
-                        Sigma_joint[aa][bb] = Sigma_u
+                Sigma_joint = np.block([[sigma_t, crosscov], [crosscov.T, Sigma_u]])
 
                 x_t = np.random.multivariate_normal(mu_t, sigma_t)  # Sample state x from predicted distribution
                 # Get action from policy based on the state
@@ -413,7 +406,7 @@ class PILCO:
                 beta_b = beta[:, b].reshape(-1, 1)
 
                 # (20)
-                E_delta = np.dot(np.dot(beta_a.T, Q), beta_b)  # TODO: Too big
+                E_delta = np.dot(np.dot(beta_a.T, Q), beta_b)
                 mu_prod = mu_delta[a] * mu_delta[b]
                 if a != b:
                     # (18) = (20)- mu_delta_a*mu_delta_b
@@ -422,7 +415,7 @@ class PILCO:
                     Sigma_delta[b][a] = entry
                 else:
                     # (23)
-                    E_var = self.alpha ** 2 - np.trace(np.dot(self.K_inv[a], Q)) + self.noise  # TODO: Too small
+                    E_var = self.alpha ** 2 - np.trace(np.dot(self.K_inv[a], Q)) + self.noise
                     # (17)=(23)+(20)- mu_delta_a**2
                     Sigma_delta[a][b] = E_var + E_delta - mu_prod if D>1 else E_delta-mu_prod
 
@@ -431,24 +424,20 @@ class PILCO:
 
         # Compute covariance matrix (See (12)/ 2.70 Deisenroth)
         # TODO: Vectorize
-        cov = np.zeros((D, D))
-        if D > 1:
-            for a in range(D):
-                sig_inver = np.dot(Sigma_delta, np.linalg.inv(Sigma_delta + self.Lambda[a]))
-                acol = 0
-                for i in range(n):
-                    bq = beta[:, a][i] * q[:, a][i]
-                    x_mu = self.x_s[i] - pred_results[0]
-                    prod = np.dot((bq * sig_inver), x_mu)
-                    acol += prod
-                cov[:, a] = acol
-
-        # For debugging
-        ew_cov, _ = np.linalg.eig(cov + cov.T)
+        cov = np.zeros((iD, D))
+        for a in range(D):
+            sig_inver = np.dot(Sigma_t_1, np.linalg.inv(Sigma_t_1 + self.Lambda[a]))
+            acol = 0
+            for i in range(n):
+                bq = beta[:, a][i] * q[:, a][i]
+                x_mu = self.x_s[i] - pred_results[0]
+                prod = np.dot((bq * sig_inver), x_mu)
+                acol += prod
+            cov[:, a] = acol
 
         # For debugging
         # Sigma_delta = Sigma_t_1
-        # cov = np.zeros((D,D))
+        # cov = np.zeros((iD,D))
 
         print("Done approximating mu and sigma delta, ", timer() - start)
         return mu_delta, Sigma_delta, cov
