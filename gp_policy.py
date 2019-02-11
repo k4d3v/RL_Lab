@@ -24,16 +24,13 @@ class GPPolicy:
         self.n_basis = n_basis
         #self.n_params = 2
         self.n_params = 1
+        self.x, self.y = None, None
 
-        # Generate random params and fit GP
-        self.x, self.y = self.prepare_data()
-        self.fit_gp()
-        #self.plot_policy()
-
-    def prepare_data(self):
+    def prepare_data(self, x0):
         """
+        Initializes the policy parameters (test inputs and targets)
+        :param x0: Initial observation
         """
-        x0 = self.env.reset()
         x = np.random.multivariate_normal(x0, np.diag(np.array([0.1] * self.s_dim)), self.n_basis)
         y = np.random.normal(0, 0.01, self.n_basis)
         return x, y
@@ -95,6 +92,13 @@ class GPPolicy:
 
         # Reset the environment
         observation = self.env.reset()
+
+        if random and self.x is None:
+            # Generate random params and fit GP
+            self.x, self.y = self.prepare_data(observation)
+            self.fit_gp()
+            # self.plot_policy()
+
         episode_reward = 0.0
         done = False
         traj = []

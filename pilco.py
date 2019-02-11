@@ -44,11 +44,9 @@ class PILCO:
 
         # Initial J random rollouts
         data = []
-        old_policy, policy = Policy(env), Policy(env)
+        # Sample controller params
+        policy = Policy(env)
         for j in range(self.J):
-            # Sample controller params
-            policy = Policy(env)
-
             # Apply random control signals and record data
             data.append(policy.rollout(True))
             # Delete redundant states across trajectories
@@ -58,6 +56,7 @@ class PILCO:
             data.append(policy.rollout())
             # Delete redundant states across trajectories
             data = self.regularize(data)
+        old_policy = policy
 
         # Controlled learning (N iterations)
         for n in range(self.N):
@@ -257,6 +256,7 @@ class PILCO:
 
                 # Next state is gaussian distributed,
                 # so the predictive mean and covariance of the action have to be computed (Deisenroth p.45)
+                mu_pred = apolicy.get_action(mu_t)
                 mu_u, Sigma_u, crosscov = self.approximate_p_delta_t(dyn_model, apolicy, x_t_1)
                 mu_squashed_u = np.exp(-Sigma_u/2)*apolicy.a_max*np.sin(mu_u)
 
@@ -368,6 +368,18 @@ class PILCO:
         y = policy.y.reshape(-1, 1)
         v = np.zeros((n, iD))
 
+        """
+        a_pred = policy.get_raw_action(x[:-1])
+
+        # self.x_s is x_schlange in paper,training input
+        k_xX = np.zeros((len(y), 1))
+        for i in range(len(y)):
+            curr_x = (self.x_s[i] - x[:-1]).reshape(-1, 1)
+            kern = (self.alpha ** 2) * np.exp(-0.5 * (np.dot(np.dot(curr_x.T, self.Lambda_inv[0]), curr_x)))
+            k_xX[i] = kern
+        xx = np.dot(k_xX.T, np.dot(self.K_inv[0], y))
+        """
+
         # calculate q_ai
         for i in range(n):
             # (16)
@@ -456,7 +468,7 @@ class PILCO:
         n = len(self.x_s)
         D = len(self.x_s[0])
 
-        R = np.dot(Sigma_t, (self.Lambda_inv[a] + self.Lambda_inv[b] + np.eye(D)))
+        R = np.dot(Sigma_t, (self.Lambda_inv[a] + self.Lambda_inv[b])) + np.eye(D)
 
         R_inv = np.linalg.inv(R)
         detsqrt = np.sqrt(np.linalg.det(R))
