@@ -8,7 +8,7 @@ import pickle
 from matplotlib import pyplot as plt
 
 import npg
-import linear_policy_new as linear_policy
+import linear_policy
 import mlp_value_function
 import evaluate
 

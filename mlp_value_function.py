@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 from timeit import default_timer as timer
+from matplotlib import pyplot as plt
 
 
 class ThreeLayerNet(torch.nn.Module):
@@ -54,7 +55,7 @@ class ValueFunction:
         """
         start = timer()
 
-        epochs = 3
+        epochs = 50
         batch_size = 64
 
         # Compute empirical reward based on trajs
@@ -79,8 +80,12 @@ class ValueFunction:
                 loss.backward()
                 self.optimizer.step()
 
-        #pred = self.model(x)
-        #print("Value-Function-Loss: ", self.criterion(pred, y).item())
+        pred = self.model(x)
+        print("Value-Function-Loss: ", self.criterion(pred, y).item())
+
+        # Plot ground truth and prediction
+        self.plot(pred, y)
+
         end = timer()
         print("Done fitting, ", end - start)
 
@@ -118,3 +123,21 @@ class ValueFunction:
                 traj_values.append(self.model(state).detach().numpy())
             all_values.append(traj_values)
         return all_values
+
+    def plot(self, pred, y):
+        """
+        Plots gorund truth of V vs prediction
+        :param pred: Predicted vals of regression model
+        :param y: Ground truth
+        """
+        x = range(len(pred))
+        pred = pred.detach().numpy().reshape(-1, )
+        y = y.detach().numpy().reshape(-1, )
+        plt.plot(x, pred, label="Prediction")
+        plt.plot(x, y, label="Ground Truth")
+        plt.legend()
+        plt.xlabel("State Number")
+        plt.ylabel("Empirical Reward")
+        plt.title("Empirical Reward: Ground Truth vs Prediction")
+        plt.show()
+        print("Done plotting.")

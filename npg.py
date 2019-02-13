@@ -27,8 +27,6 @@ class NPG:
         :param k: Number of iterations
         :param n: Number of sampled trajectories per iteration
         """
-        old_trajs = self.rollout(n)
-
         for i in range(k):
             start = timer()
             print("Iteration: ", i)
@@ -63,8 +61,7 @@ class NPG:
             #print("New Params: ", self.policy.get_params())
 
             # Fit value function
-            self.val.fit(old_trajs)
-            old_trajs = trajs[:]
+            self.val.fit(trajs)
 
             end = timer()
             print("Done iteration, ", end - start)
