@@ -55,7 +55,7 @@ class ValueFunction:
         """
         start = timer()
 
-        epochs = 50
+        epochs = 64
         batch_size = 64
 
         # Compute empirical reward based on trajs
@@ -84,7 +84,8 @@ class ValueFunction:
         print("Value-Function-Loss: ", self.criterion(pred, y).item())
 
         # Plot ground truth and prediction
-        self.plot(pred, y)
+        # Uncomment for debugging
+        self.plot(len(trajs[0]), pred, y)
 
         end = timer()
         print("Done fitting, ", end - start)
@@ -124,20 +125,20 @@ class ValueFunction:
             all_values.append(traj_values)
         return all_values
 
-    def plot(self, pred, y):
+    def plot(self, n, pred, y):
         """
         Plots gorund truth of V vs prediction
+        :param n: Number of points to plot
         :param pred: Predicted vals of regression model
         :param y: Ground truth
         """
-        x = range(len(pred))
+        x = range(n)
         pred = pred.detach().numpy().reshape(-1, )
         y = y.detach().numpy().reshape(-1, )
-        plt.plot(x, pred, label="Prediction")
-        plt.plot(x, y, label="Ground Truth")
+        plt.plot(x, pred[:n], label="Prediction")
+        plt.plot(x, y[:n], label="Ground Truth")
         plt.legend()
         plt.xlabel("State Number")
         plt.ylabel("Empirical Reward")
         plt.title("Empirical Reward: Ground Truth vs Prediction")
         plt.show()
-        print("Done plotting.")
