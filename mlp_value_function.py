@@ -48,14 +48,15 @@ class ValueFunction:
         self.criterion = torch.nn.MSELoss()
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-3)
 
-    def fit(self, trajs):
+    def fit(self, trajs, init=False):
         """
         Fits the NN onto training data
         :param trajs: Trajs (state, action, reward) used as supervised learning training data
         """
         start = timer()
 
-        epochs = 64
+        # Fit for 100 epochs if net was newly initialized, else only for 10, as new vals are similar to init.
+        epochs = 100 if init else 10
         batch_size = 64
 
         # Compute empirical reward based on trajs
@@ -85,7 +86,7 @@ class ValueFunction:
 
         # Plot ground truth and prediction
         # Uncomment for debugging
-        self.plot(len(trajs[0]), pred, y)
+        #self.plot(len(trajs[0]), pred, y)
 
         end = timer()
         print("Done fitting, ", end - start)
