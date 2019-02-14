@@ -7,6 +7,7 @@ class NPG:
     """
     Represents the NPG algorithm
     """
+
     def __init__(self, policy, env, val, delta=0.05):
         """
         Initializes NPG
@@ -45,11 +46,11 @@ class NPG:
 
             # Compute advantages
             vals = self.val.predict(trajs)
-            #adv = self.compute_adv(trajs, vals)
-            adv_false = self.compute_adv_fast(trajs, vals)
+            # adv = self.compute_adv(trajs, vals)
+            adv = self.compute_adv(trajs, vals)
 
             # Compute Vanilla Policy Gradient (2)
-            vanilla_gradient = self.vanilla_pol_grad(log_prob_grads, adv_false)
+            vanilla_gradient = self.vanilla_pol_grad(log_prob_grads, adv)
 
             # Compute Fisher Information Metric (4)
             fish = self.fisher(log_prob_grads)
@@ -64,7 +65,7 @@ class NPG:
 
             # Update policy parameters
             self.policy.update_params(step.ravel())
-            #print("New Params: ", self.policy.get_params())
+            # print("New Params: ", self.policy.get_params())
 
             # Fit value function
             self.val.fit(trajs)
@@ -160,8 +161,9 @@ class NPG:
             traj_grads = []
             for timestep in traj:
                 obs, act, _ = timestep
-                #grad = self.policy.get_gradient(torch.Tensor(obs).view(self.s_dim, 1), torch.from_numpy(act.ravel()))
-                grad  = self.policy.get_gradient_analy(torch.Tensor(obs).view(self.s_dim, 1), torch.from_numpy(act.ravel()))
+                # grad = self.policy.get_gradient(torch.Tensor(obs).view(self.s_dim, 1), torch.from_numpy(act.ravel()))
+                grad = self.policy.get_gradient_analy(torch.Tensor(obs).view(self.s_dim, 1),
+                                                      torch.from_numpy(act.ravel()))
                 traj_grads.append(grad)
             all_grads.append(traj_grads)
 
@@ -170,33 +172,6 @@ class NPG:
         return all_grads
 
     def compute_adv(self, trajs, vals, gamma=0.95, lamb=0.97):
-        """
-        Compute the advantages based on the sampled trajs
-        See High-Dimensional Continuous Control Using Generalized Advantage Estimation, p.5
-        :param trajs: Sampled trajs
-        :param vals: Approximated value fun
-        :param gamma: Gamma hyperparam
-        :param lamb: Lambda hyperparam
-        :return: Estimated advantages
-        """
-        start = timer()
-
-        all_adv = []
-        for i in range(len(trajs)):
-            traj_adv = []
-            for j in range(len(trajs[i])):
-                adv = 0.0
-                for l in range(len(trajs[i])-j-1):
-                    delta = trajs[i][j + l][2] + gamma * vals[i][j + l + 1] - vals[i][j + l]
-                    adv += ((gamma*lamb)**l)*delta
-                traj_adv.append(adv)
-            all_adv.append(traj_adv)
-
-        end = timer()
-        print("Done advantas, ", end - start)
-        return all_adv
-
-    def compute_adv_fast(self, trajs, vals, gamma=0.95, lamb=0.97):
         """
         Computes the advantages based on the sampled trajs
         See High-Dimensional Continuous Control Using Generalized Advantage Estimation, p.5
@@ -216,12 +191,12 @@ class NPG:
             trajs_rew.append(np.array([p[2] for p in trajs[i]]))
 
             # Compute gamma*v for each point on the trajectory and shift the vector one to the left
-            first = [gamma*v for v in vals[i]]
+            first = [gamma * v for v in vals[i]]
             first.append(np.array([0]))
-            gavals.append(np.array(first[1:]).reshape(-1,))
+            gavals.append(np.array(first[1:]).reshape(-1, ))
 
             # Reshape vals
-            vals[i] = np.array(vals[i]).reshape(-1,)
+            vals[i] = np.array(vals[i]).reshape(-1, )
 
         for i in range(len(trajs)):
             # traj + gamma*vals - vals
@@ -231,7 +206,7 @@ class NPG:
             for j in range(len(trajs[i])):
                 # Sum up all entries delta, multiplied by (gamma*lambda)^l, starting at j
                 l_sum = curr_sum[j:]
-                l_sum = [((gamma*lamb)**l)*l_sum[l] for l in range(l_sum.shape[0])]
+                l_sum = [((gamma * lamb) ** l) * l_sum[l] for l in range(l_sum.shape[0])]
                 adv_row.append(np.sum(l_sum))
 
             # Append advantages for each trajectory
@@ -253,7 +228,6 @@ class NPG:
         avg_reward = 0.0
 
         for _ in range(n):
-
             # Reset the environment
             observation = self.env.reset()
             episode_reward = 0.0
@@ -275,11 +249,26 @@ class NPG:
                 traj.append(point)  # Add Tuple to traj
 
             # Delete out of bounds (last) point on traj (TODO: Maybe only for ballbal)
-            #del traj[-1]
+            # del traj[-1]
             avg_reward += episode_reward
-            trajs.append(traj)
+            trajs.append(self.clean(traj))
 
         print("Avg reward: ", (avg_reward / n))
         end = timer()
         print("Done rollout, ", end - start)
         return trajs
+
+    def clean(self, traj):
+        """
+        Removes redundant samples from a trajectory
+        :param traj: Trajectory
+        :return: Cleant trajectory
+        """
+        t = 1
+        while t < len(traj):
+            if np.all(np.abs(traj[t][0] - traj[t - 1][0]) < 1e-3):
+                # Remove previous sample
+                del traj[t - 1]
+            else:
+                t += 1
+        return traj

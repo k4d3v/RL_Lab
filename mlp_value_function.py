@@ -86,19 +86,20 @@ class ValueFunction:
 
         # Plot ground truth and prediction
         # Uncomment for debugging
-        #self.plot(len(trajs[0]), pred, y)
+        #self.plot(pred, y, len(trajs[0]))
+        #self.plot(pred, y)
 
-        end = timer()
-        print("Done fitting, ", end - start)
+        print("Done fitting, ", timer() - start)
 
     def empirical_reward(self, trajs):
         """
         :param traj: A sampled trajectory (state, action, reward)
         :return: (state, empirical_return)
         """
+        start = timer()
+
         states = []
         rewards = []
-
         for traj in trajs:
             for i in range(len(traj)):
                 reward=0.0
@@ -107,7 +108,7 @@ class ValueFunction:
 
                 states.append(np.array(traj[i][0]))
                 rewards.append(reward)
-
+        print("Done emp. reward, ", timer() - start)
         return [states, rewards]
 
     def predict(self, trajs):
@@ -126,14 +127,18 @@ class ValueFunction:
             all_values.append(traj_values)
         return all_values
 
-    def plot(self, n, pred, y):
+    def plot(self, pred, y, n=0):
         """
         Plots gorund truth of V vs prediction
         :param n: Number of points to plot
         :param pred: Predicted vals of regression model
         :param y: Ground truth
         """
-        x = range(n)
+        if n == 0:
+            x = range(len(y))
+            n = len(y)
+        else:
+            x = range(n)
         pred = pred.detach().numpy().reshape(-1, )
         y = y.detach().numpy().reshape(-1, )
         plt.plot(x, pred[:n], label="Prediction")
