@@ -1,5 +1,3 @@
-import random
-
 import gym
 import numpy as np
 import quanser_robots
@@ -19,9 +17,8 @@ Script for testing the NPG implementation
 np.random.seed(42)
 #env_names = ['CartpoleStabShort-v0', 'CartpoleStabLong-v0', 'CartpoleSwingShort-v0', 'CartpoleSwingLong-v0', 'BallBalancerSim-v0']
 env_names = ['CartpoleSwingShort-v0', 'CartpoleSwingLong-v0', 'BallBalancerSim-v0']
-#env_names = ['BallBalancerSim-v0']
 
-num_iters = [0, 50, 100]  # Different numbers of iterations
+num_iters = [0, 20, 40, 60, 80]  # Different numbers of iterations
 
 #deltas = [0.05]*5
 #traj_samples_list = [20, 20, 100, 100, 200] # TODO: Finetune
