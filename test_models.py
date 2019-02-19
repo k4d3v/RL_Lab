@@ -23,8 +23,9 @@ env_names = ['CartpoleSwingShort-v0', 'BallBalancerSim-v0']
 for env_name in env_names:
     print(env_name)
 
-    iters = [50, 100, 150]  # Number of iterations of training
+    iters = [40]  # Number of iterations of training
+    traj_samps = 80 # Number of sampled trajs per iteration during training
 
     for i in iters:
-        policy = pickle.load(open("policies/"+env_name+"_"+str(i)+".slp", "rb" ))
+        policy = pickle.load(open("policies/"+env_name+"_"+str(i)+"_"+str(traj_samps)+".slp", "rb" ))
         test(policy, env_name)
