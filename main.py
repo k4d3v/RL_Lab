@@ -37,8 +37,9 @@ def settings(env_name):
 Script for testing the NPG implementation
 """
 np.random.seed(42)
-env_names = ['CartpoleStabShort-v0', 'CartpoleStabLong-v0',
-             'CartpoleSwingShort-v0', 'CartpoleSwingLong-v0', 'BallBalancerSim-v0']
+#env_names = ['CartpoleStabShort-v0', 'CartpoleStabLong-v0',
+#             'CartpoleSwingShort-v0', 'CartpoleSwingLong-v0', 'BallBalancerSim-v0']
+env_names = ['BallBalancerSim-v0']
 
 for env_name in env_names:
     num_iters, delta, traj_samples_list = settings(env_name)
