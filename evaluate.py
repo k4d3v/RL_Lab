@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 
 
@@ -28,6 +29,7 @@ class Evaluator:
         min_reward = 100000
         max_reward = -100000
 
+        #acts = []
         for _ in range(n):
 
             # Reset the environment
@@ -40,7 +42,8 @@ class Evaluator:
                     self.env.render()
 
                 action = self.policy.get_action(torch.Tensor(observation).view(self.s_dim, 1))
-
+                #acts.append(action)
+                #print(action)
                 observation, reward, done, _ = self.env.step(action)  # Take action
 
                 episode_reward += reward
@@ -51,4 +54,5 @@ class Evaluator:
                 min_reward = episode_reward
             avg_reward += episode_reward
 
+        #amin, amax = np.min(acts), np.max(acts)
         return avg_reward / n
