@@ -46,7 +46,6 @@ class NPG:
 
             # Compute advantages
             vals = self.val.predict(trajs)
-            # adv = self.compute_adv(trajs, vals)
             adv = self.compute_adv(trajs, vals)
 
             # Compute Vanilla Policy Gradient (2)
@@ -188,24 +187,22 @@ class NPG:
         trajs_rew, gavals = [], []
         for i in range(len(trajs)):
             # Get rewards from data
-            trajs_rew.append(np.array([p[2] for p in trajs[i]]))
+            trajs_rew.append(np.array([p[2] for p in trajs[i]][:-1]))
 
             # Compute gamma*v for each point on the trajectory and shift the vector one to the left
-            first = [gamma * v for v in vals[i]]
-            first.append(np.array([0]))
-            gavals.append(np.array(first[1:]).reshape(-1, ))
+            gavals.append(np.array([gamma * v for v in vals[i][1:]]).reshape(-1, ))
 
             # Reshape vals
-            vals[i] = np.array(vals[i]).reshape(-1, )
+            vals[i] = np.array(vals[i][:-1]).reshape(-1, )
 
         for i in range(len(trajs)):
             # traj + gamma*vals - vals
             curr_sum = np.subtract(np.add(trajs_rew[i], gavals[i]), vals[i])
 
             adv_row = []
-            for j in range(len(trajs[i])):
+            for t in range(len(trajs[i])):
                 # Sum up all entries delta, multiplied by (gamma*lambda)^l, starting at j
-                l_sum = curr_sum[j:]
+                l_sum = curr_sum[t:]
                 l_sum = [((gamma * lamb) ** l) * l_sum[l] for l in range(l_sum.shape[0])]
                 adv_row.append(np.sum(l_sum))
 
@@ -252,7 +249,8 @@ class NPG:
             if self.env.spec.id == "BallBalancerSim-v0":
                 del traj[-1]
             avg_reward += episode_reward
-            trajs.append(self.clean(traj))
+            #trajs.append(self.clean(traj))
+            trajs.append(traj)
 
         print("Avg reward: ", (avg_reward / n))
         end = timer()

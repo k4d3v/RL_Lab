@@ -18,13 +18,13 @@ def test(policy, env_name):
 
 
 #env_names = ['CartpoleStabShort-v0', 'CartpoleStabLong-v0', 'CartpoleSwingShort-v0', 'CartpoleSwingLong-v0', 'BallBalancerSim-v0']
-env_names = ['CartpoleSwingShort-v0', 'BallBalancerSim-v0']
+env_names = ['CartpoleStabShort-v0']
 
 for env_name in env_names:
     print(env_name)
 
-    iters = [40]  # Number of iterations of training
-    traj_samps = 80 # Number of sampled trajs per iteration during training
+    iters = [50]  # Number of iterations of training
+    traj_samps = 10 # Number of sampled trajs per iteration during training
 
     for i in iters:
         policy = pickle.load(open("policies/"+env_name+"_"+str(i)+"_"+str(traj_samps)+".slp", "rb" ))

@@ -21,7 +21,7 @@ def settings(env_name):
     if env_name == 'CartpoleStabShort-v0' or env_name == 'CartpoleStabLong-v0':
         num_iters = [0, 50, 100, 150, 200, 250]
         delta = 0.05
-        traj_samples_list = [20, 40]
+        traj_samples_list = [10, 20]
     elif env_name == 'CartpoleSwingShort-v0' or env_name == 'CartpoleSwingLong-v0':
         num_iters = [0, 10, 20, 30, 40, 50]
         delta = 0.05
@@ -39,7 +39,7 @@ Script for testing the NPG implementation
 np.random.seed(42)
 #env_names = ['CartpoleStabShort-v0', 'CartpoleStabLong-v0',
 #             'CartpoleSwingShort-v0', 'CartpoleSwingLong-v0', 'BallBalancerSim-v0']
-env_names = ['BallBalancerSim-v0']
+env_names = ['CartpoleStabShort-v0']
 
 for env_name in env_names:
     num_iters, delta, traj_samples_list = settings(env_name)

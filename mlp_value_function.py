@@ -55,8 +55,8 @@ class ValueFunction:
         """
         start = timer()
 
-        # Fit for 100 epochs if net was newly initialized, else only for 10, as new vals are similar to init.
-        epochs = 100 if init else 10
+        # Fit for more epochs if net was newly initialized, else for less, as new vals are similar to init.
+        epochs = 200 if init else 20
         batch_size = 64
 
         # Compute empirical reward based on trajs
