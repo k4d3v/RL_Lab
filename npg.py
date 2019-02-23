@@ -226,7 +226,7 @@ class NPG:
 
         for _ in range(n):
             # Reset the environment
-            observation = self.env.reset()
+            observation = self.env.reset() if self.env.spec.id == "BallBalancerSim-v0" else self.env.reset()[0]
             episode_reward = 0.0
             done = False
             traj = []
@@ -235,7 +235,9 @@ class NPG:
                 # env.render()
                 point = []
 
-                action = self.policy.get_action(torch.Tensor(observation).view(self.s_dim, 1))
+                action = self.policy.get_action(torch.Tensor(observation).view(self.s_dim, 1)) \
+                    if self.env.spec.id == "BallBalancerSim-v0" \
+                    else np.clip(self.policy.get_action(torch.Tensor(observation).view(self.s_dim, 1)), -6, 6)
 
                 point.append(observation)  # Save state to tuple
                 point.append(action)  # Save action to tuple
@@ -265,7 +267,7 @@ class NPG:
         """
         t = 1
         while t < len(traj):
-            if np.all(np.abs(traj[t][0] - traj[t - 1][0]) < 1e-3):
+            if np.all(np.abs(traj[t][0] - traj[t - 1][0]) < 5e-3) and np.abs(traj[t][2]-traj[t-1][2]) < 1e-3:
                 # Remove previous sample
                 del traj[t - 1]
             else:
