@@ -33,7 +33,7 @@ class Evaluator:
         for _ in range(n):
 
             # Reset the environment
-            observation = self.env.reset() if self.env.spec.id == "BallBalancerSim-v0" else self.env.reset()[0]
+            observation = self.env.reset() if self.env.spec.id == "BallBalancerSim-v0" else self.env.reset()
             episode_reward = 0.0
             done = False
 

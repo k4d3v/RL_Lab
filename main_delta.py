@@ -17,20 +17,21 @@ def settings(env_name):
     :param env_name: Name of the env
     :return: Number of iterations for plotting, delta, Number of sampled trajs per iteration
     """
-    num_iters, delta, traj_samples_list = [], 0.05, []
+    num_iters, delta, traj_samples = [], [], 100
     if env_name == 'CartpoleStabShort-v0' or env_name == 'CartpoleStabLong-v0':
         num_iters = [0, 50, 100, 150, 200, 250]
-        delta = 0.001
-        traj_samples_list = [5, 10, 20]
+        delta = np.linspace(0.001, 0.01, 5)
+        traj_samples = 5
     elif env_name == 'CartpoleSwingShort-v0' or env_name == 'CartpoleSwingLong-v0':
-        num_iters = [0, 10, 20, 30, 40, 50]
-        delta = 0.05
-        traj_samples_list = [50, 80]
+        #num_iters = [0, 10, 20, 30, 40, 50]
+        num_iters = [0, 50, 100, 150, 200, 250]
+        delta = np.linspace(0.001, 0.01, 5)
+        traj_samples = 20
     elif env_name == 'BallBalancerSim-v0':
         num_iters = [0, 100, 200, 300, 400, 500]
-        delta = 0.05
-        traj_samples_list = [200, 500]
-    return num_iters, delta, traj_samples_list
+        delta = np.linspace(0.001, 0.01, 5)
+        traj_samples = 500
+    return num_iters, delta, traj_samples
 
 
 """
@@ -42,14 +43,14 @@ np.random.seed(42)
 env_names = ['CartpoleStabShort-v0']
 
 for env_name in env_names:
-    num_iters, delta, traj_samples_list = settings(env_name)
+    num_iters, delta, traj_samples = settings(env_name)
     print(env_name)
     init = timer()
 
     all_rews = []
     # Loop over different numbers of trajectory samples
-    for traj_samples in traj_samples_list:
-        print("Traj. samples per iteration: "+str(traj_samples))
+    for ad in delta:
+        print("Delta: "+str(ad))
         avg_rewards = []
 
         # Setup policy, environment and models
@@ -58,7 +59,7 @@ for env_name in env_names:
         s_dim = env.observation_space.shape[0]
         policy = linear_policy.SimpleLinearPolicy(env)
         val = mlp_value_function.ValueFunction(s_dim)
-        model = npg.NPG(policy, env, val, delta)
+        model = npg.NPG(policy, env, val, ad)
 
         start = timer()
 
@@ -91,7 +92,7 @@ for env_name in env_names:
 
             # Save current model
             pickle.dump(policy, open("policies/" + env_name + "_" + str(num_iters[i + 1]) +
-                                     "_" + str(traj_samples) + ".slp", "wb"))
+                                     "_" + str(ad) + ".slp", "wb"))
 
             avg_rewards.append(ev_trained)
             print(ev_trained)
@@ -105,7 +106,7 @@ for env_name in env_names:
     plt.figure(figsize=(4.6, 3.6))
     # Plot average rewards for different numbers of trajectories
     for ar in range(len(all_rews)):
-        plt.plot(num_iters, all_rews[ar], label= str(traj_samples_list[ar]) + " Trajectories per Iteration")
+        plt.plot(num_iters, all_rews[ar], label="Delta: "+str(delta[ar]))
     plt.xlabel("Number of Iterations")
     plt.ylabel("Average Reward on 100 Episodes")
     plt.title("Average Rewards for " + env_name)
@@ -114,7 +115,7 @@ for env_name in env_names:
     plt.tight_layout()
 
     plt.gcf()
-    plt.savefig("figures/" + env_name + ".pdf")
+    plt.savefig("figures_delta/" + env_name + ".pdf")
 
     # plt.show()
     print("Env done")
