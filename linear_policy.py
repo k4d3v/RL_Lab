@@ -9,11 +9,12 @@ class SimpleLinearPolicy:
     """ Represents a linear policy
     like described in 'Towards Generalization and Simplicity in Continuous Control', p.4"""
 
-    def __init__(self, s_dim):
-        self.s_dim = s_dim
-        self.W = [Variable(torch.rand(1), requires_grad=True) for d in range(self.s_dim)]
-        self.b = Variable(torch.rand(1), requires_grad=True)
-        self.std = Variable(torch.rand(1), requires_grad=True)
+    def __init__(self, env):
+        self.s_dim = env.observation_space.shape[0]
+        # Init W and bias to 0 and standard deviation such that 3*sigma=max_action
+        self.W = [Variable(torch.Tensor([0]), requires_grad=True) for d in range(self.s_dim)]
+        self.b = Variable(torch.Tensor([0]), requires_grad=True)
+        self.std = Variable(torch.Tensor([env.action_space.high/3]), requires_grad=True)
 
     def get_dist(self, state):
         """
