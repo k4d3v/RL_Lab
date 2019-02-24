@@ -33,7 +33,7 @@ class Evaluator:
         for _ in range(n):
 
             # Reset the environment
-            observation = self.env.reset() if self.env.spec.id == "BallBalancerSim-v0" else self.env.reset()
+            observation = self.env.reset()
             episode_reward = 0.0
             done = False
 
@@ -42,8 +42,9 @@ class Evaluator:
                     self.env.render()
 
                 action = self.policy.get_action(torch.Tensor(observation).view(self.s_dim, 1)) \
-                    if self.env.spec.id == "BallBalancerSim-v0" \
+                    if not self.env.spec.id == "BallBalancerSim-v0" \
                     else np.clip(self.policy.get_action(torch.Tensor(observation).view(self.s_dim, 1)), -6, 6)
+                #action = self.policy.get_action(torch.Tensor(observation).view(self.s_dim, 1))
                 #acts.append(action)
                 #print(action)
                 observation, reward, done, _ = self.env.step(action)  # Take action

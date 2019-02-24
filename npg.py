@@ -226,7 +226,7 @@ class NPG:
 
         for _ in range(n):
             # Reset the environment
-            observation = self.env.reset() if self.env.spec.id == "BallBalancerSim-v0" else self.env.reset()
+            observation = self.env.reset()
             episode_reward = 0.0
             done = False
             traj = []
@@ -238,6 +238,7 @@ class NPG:
                 #action = self.policy.get_action(torch.Tensor(observation).view(self.s_dim, 1)) \
                 #    if self.env.spec.id == "BallBalancerSim-v0" \
                 #    else np.clip(self.policy.get_action(torch.Tensor(observation).view(self.s_dim, 1)), -6, 6)
+                # TODO: Clip when training on real platform
                 action = self.policy.get_action(torch.Tensor(observation).view(self.s_dim, 1))
 
                 point.append(observation)  # Save state to tuple
