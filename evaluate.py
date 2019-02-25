@@ -31,6 +31,7 @@ class Evaluator:
 
         #acts = []
         for _ in range(n):
+            print(_)
 
             # Reset the environment
             observation = self.env.reset()
@@ -39,7 +40,7 @@ class Evaluator:
 
             while not done:
                 if render:
-                    self.env.render()
+                   self.env.render()
 
                 action = self.policy.get_action(torch.Tensor(observation).view(self.s_dim, 1)) \
                     if self.env.spec.id == "BallBalancerSim-v0" \
@@ -53,8 +54,8 @@ class Evaluator:
                     min_s0, max_s0 = self.env.observation_space.low[0], self.env.observation_space.high[0]
                     distl = np.abs(observation[0]-min_s0)
                     distr = np.abs(observation[0]-max_s0)
-                    print(distl)
-                    print(distr)
+                    #print(distl)
+                    #print(distr)
                     if distl<0.1 or distr<0.1:
                         break
 
@@ -66,5 +67,7 @@ class Evaluator:
                 min_reward = episode_reward
             avg_reward += episode_reward
 
+        self.env.step(np.array([0.]))
+        print("here?")
         #amin, amax = np.min(acts), np.max(acts)
         return avg_reward / n
