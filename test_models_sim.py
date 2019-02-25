@@ -2,20 +2,37 @@ import gym
 import quanser_robots
 from timeit import default_timer as timer
 import pickle
+from matplotlib import pyplot as plt
 
 import evaluate
 
 def test(policy, env_name):
     start = timer()
 
-    # Evaluate Model after learning with 100 rollouts
-    eval = evaluate.Evaluator(policy, gym.make(env_name))
-    ev = eval.evaluate(2, True, True)
-    print("here")
+    evs = []
+    rng = range(3)
+    for _ in rng:
+        # Evaluate Model after learning with 100 rollouts
+        eval = evaluate.Evaluator(policy, gym.make(env_name))
+        ev = eval.evaluate(1, True, True)
+        print("Total reward:", ev)
+        evs.append(ev)
+
     end = timer()
     print("Done evaluating learnt policy, ", end - start)
-    print("Total reward:", ev)
 
+    # Plot rewards together with iterations
+    plt.figure(figsize=(4.6, 3.6))
+    plt.plot(rng, evs)
+    plt.xlabel("Episode Nr.")
+    plt.ylabel("Average Reward")
+    plt.title("Rewards for Repeated Experiment on Real Cartpole")
+    plt.xticks(rng)
+    plt.tight_layout()
+
+    # Save plot
+    plt.gcf()
+    plt.savefig("figures_sim_real/" + env_name + ".pdf")
 
 env_names = ['CartpoleStabRR-v0']
 #env_names = ['CartpoleStabShort-v0']

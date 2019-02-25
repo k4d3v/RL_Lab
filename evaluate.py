@@ -31,8 +31,6 @@ class Evaluator:
 
         #acts = []
         for _ in range(n):
-            print(_)
-
             # Reset the environment
             observation = self.env.reset()
             episode_reward = 0.0
@@ -68,6 +66,5 @@ class Evaluator:
             avg_reward += episode_reward
 
         self.env.step(np.array([0.]))
-        print("here?")
         #amin, amax = np.min(acts), np.max(acts)
         return avg_reward / n
