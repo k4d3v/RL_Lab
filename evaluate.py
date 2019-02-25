@@ -42,11 +42,11 @@ class Evaluator:
                     self.env.render()
 
                 action = self.policy.get_action(torch.Tensor(observation).view(self.s_dim, 1)) \
-                    if not self.env.spec.id == "BallBalancerSim-v0" \
+                    if self.env.spec.id == "BallBalancerSim-v0" \
                     else np.clip(self.policy.get_action(torch.Tensor(observation).view(self.s_dim, 1)), -6, 6)
                 #action = self.policy.get_action(torch.Tensor(observation).view(self.s_dim, 1))
                 #acts.append(action)
-                #print(action)
+                print(action)
                 observation, reward, done, _ = self.env.step(action)  # Take action
 
                 episode_reward += reward
