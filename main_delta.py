@@ -50,6 +50,7 @@ for env_name in env_names:
     all_rews = []
     # Loop over different numbers of trajectory samples
     for ad in delta:
+        ad = round(ad, 4)
         print("Delta: "+str(ad))
         avg_rewards = []
 
@@ -106,7 +107,7 @@ for env_name in env_names:
     plt.figure(figsize=(4.6, 3.6))
     # Plot average rewards for different numbers of trajectories
     for ar in range(len(all_rews)):
-        plt.plot(num_iters, all_rews[ar], label="Delta: "+str(delta[ar]))
+        plt.plot(num_iters, all_rews[ar], label="Delta: "+str(ad))
     plt.xlabel("Number of Iterations")
     plt.ylabel("Average Reward on 100 Episodes")
     plt.title("Average Rewards for " + env_name)
