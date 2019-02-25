@@ -10,15 +10,15 @@ def test(policy, env_name):
 
     # Evaluate Model after learning with 100 rollouts
     eval = evaluate.Evaluator(policy, gym.make(env_name))
-    ev = eval.evaluate(2, True)
+    ev = eval.evaluate(2, True, True)
 
     end = timer()
     print("Done evaluating learnt policy, ", end - start)
     print("Total reward:", ev)
 
 
-env_names = ['CartpoleStabRR-v0']
-#env_names = ['CartpoleSwingShort-v0', 'BallBalancerSim-v0']
+#env_names = ['CartpoleStabRR-v0']
+env_names = ['CartpoleStabShort-v0']
 
 for env_name in env_names:
     print(env_name)

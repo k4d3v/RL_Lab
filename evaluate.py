@@ -19,7 +19,7 @@ class Evaluator:
         # State dimension
         self.s_dim = self.env.observation_space.shape[0]
 
-    def evaluate(self, n, render=False):
+    def evaluate(self, n, render=False, limit=False):
         """
         Collect rewards based on actions sampled from the learnt policy
         :param n: Number of rollouts
@@ -46,8 +46,17 @@ class Evaluator:
                     else np.clip(self.policy.get_action(torch.Tensor(observation).view(self.s_dim, 1)), -6, 6)
                 #action = self.policy.get_action(torch.Tensor(observation).view(self.s_dim, 1))
                 #acts.append(action)
-                print(action)
+                #print(action)
                 observation, reward, done, _ = self.env.step(action)  # Take action
+
+                if limit:
+                    min_s0, max_s0 = self.env.observation_space.low[0], self.env.observation_space.high[0]
+                    distl = np.abs(observation[0]-min_s0)
+                    distr = np.abs(observation[0]-max_s0)
+                    print(distl)
+                    print(distr)
+                    if distl<0.1 or distr<0.1:
+                        break
 
                 episode_reward += reward
 
