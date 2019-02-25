@@ -10,7 +10,7 @@ def test(policy, env_name):
     start = timer()
 
     evs = []
-    rng = range(3)
+    rng = range(10)
     for _ in rng:
         # Evaluate Model after learning with 100 rollouts
         eval = evaluate.Evaluator(policy, gym.make(env_name))
