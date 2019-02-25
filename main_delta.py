@@ -20,7 +20,7 @@ def settings(env_name):
     num_iters, delta, traj_samples = [], [], 100
     if env_name == 'CartpoleStabShort-v0' or env_name == 'CartpoleStabLong-v0':
         num_iters = range(0, 201, 20)
-        delta = np.linspace(1e-3, 1e-2, 5)
+        delta = np.linspace(1e-3, 1e-2, 3)
         traj_samples = 5
     elif env_name == 'CartpoleSwingShort-v0' or env_name == 'CartpoleSwingLong-v0':
         #num_iters = [0, 10, 20, 30, 40, 50]
@@ -107,7 +107,7 @@ for env_name in env_names:
     plt.figure(figsize=(4.6, 3.6))
     # Plot average rewards for different numbers of trajectories
     for ar in range(len(all_rews)):
-        plt.plot(num_iters, all_rews[ar], label="Delta: "+str(ad))
+        plt.plot(num_iters, all_rews[ar], label="Delta: "+str(delta[ar]))
     plt.xlabel("Number of Iterations")
     plt.ylabel("Average Reward on 100 Episodes")
     plt.title("Average Rewards for " + env_name)
