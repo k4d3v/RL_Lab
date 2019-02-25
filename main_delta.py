@@ -19,8 +19,8 @@ def settings(env_name):
     """
     num_iters, delta, traj_samples = [], [], 100
     if env_name == 'CartpoleStabShort-v0' or env_name == 'CartpoleStabLong-v0':
-        num_iters = [0, 50, 100, 150, 200, 250]
-        delta = np.linspace(0.001, 0.01, 5)
+        num_iters = range(0, 201, 20)
+        delta = np.linspace(1e-3, 1e-2, 5)
         traj_samples = 5
     elif env_name == 'CartpoleSwingShort-v0' or env_name == 'CartpoleSwingLong-v0':
         #num_iters = [0, 10, 20, 30, 40, 50]
@@ -79,7 +79,7 @@ for env_name in env_names:
             start = timer()
 
             # Train model with n Trajectories per Iteration
-            model.train(iters, traj_samples)
+            model.train(iters, traj_samples, i == 0)
 
             print("Done training, ", timer() - start)
 

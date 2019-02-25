@@ -22,7 +22,7 @@ class NPG:
         self.val = val
         self.delta = delta
 
-    def train(self, k, n):
+    def train(self, k, n, first=False):
         """
         Trains the NPG model
         :param k: Number of iterations
@@ -32,7 +32,7 @@ class NPG:
         # Collect trajectories by rolling out the policy
         trajs = self.rollout(n)
         # Fit value function
-        self.val.fit(trajs, True)
+        self.val.fit(trajs, first)
 
         for i in range(k):
             start = timer()
