@@ -6,6 +6,7 @@ from matplotlib import pyplot as plt
 
 import evaluate
 
+
 def test(policy, env_name):
     start = timer()
 
@@ -34,15 +35,16 @@ def test(policy, env_name):
     plt.gcf()
     plt.savefig("figures_sim_real/" + env_name + ".pdf")
 
+
 env_names = ['CartpoleStabRR-v0']
-#env_names = ['CartpoleStabShort-v0']
+# env_names = ['CartpoleStabShort-v0']
 
 for env_name in env_names:
     print(env_name)
 
     iters = [200]  # Number of iterations of training
-    traj_samps = 0.0055 # Number of sampled trajs per iteration during training
+    traj_samps = 0.0055  # Number of sampled trajs per iteration during training
 
     for i in iters:
-        policy = pickle.load(open("policies/"+env_name+"_"+str(i)+"_"+str(traj_samps)+".slp", "rb" ))
+        policy = pickle.load(open("policies/" + env_name + "_" + str(i) + "_" + str(traj_samps) + ".slp", "rb"))
         test(policy, env_name)

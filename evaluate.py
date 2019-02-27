@@ -48,6 +48,8 @@ class Evaluator:
                 #print(action)
                 observation, reward, done, _ = self.env.step(action)  # Take action
 
+                episode_reward += reward
+
                 if limit:
                     min_s0, max_s0 = self.env.observation_space.low[0], self.env.observation_space.high[0]
                     distl = np.abs(observation[0]-min_s0)
@@ -56,8 +58,6 @@ class Evaluator:
                     #print(distr)
                     if distl<0.1 or distr<0.1:
                         break
-
-                episode_reward += reward
 
             if episode_reward > max_reward:
                 max_reward = episode_reward

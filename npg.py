@@ -232,14 +232,12 @@ class NPG:
             traj = []
 
             while not done:
-                # env.render()
                 point = []
 
-                #action = self.policy.get_action(torch.Tensor(observation).view(self.s_dim, 1)) \
-                #    if self.env.spec.id == "BallBalancerSim-v0" \
-                #    else np.clip(self.policy.get_action(torch.Tensor(observation).view(self.s_dim, 1)), -6, 6)
-                # TODO: Clip when training on real platform
-                action = self.policy.get_action(torch.Tensor(observation).view(self.s_dim, 1))
+                # Clip action if on real env
+                action = np.clip(self.policy.get_action(torch.Tensor(observation).view(self.s_dim, 1)), -6, 6) \
+                    if self.env.spec.id == "CartpoleStabRR-v0" \
+                    else self.policy.get_action(torch.Tensor(observation).view(self.s_dim, 1))
 
                 point.append(observation)  # Save state to tuple
                 point.append(action)  # Save action to tuple
@@ -249,6 +247,15 @@ class NPG:
                 episode_reward += reward
                 traj.append(point)  # Add Tuple to traj
 
+                if self.env.spec.id == "CartpoleStabRR-v0":
+                    min_s0, max_s0 = self.env.observation_space.low[0], self.env.observation_space.high[0]
+                    distl = np.abs(observation[0]-min_s0)
+                    distr = np.abs(observation[0]-max_s0)
+                    #print(distl)
+                    #print(distr)
+                    if distl<0.1 or distr<0.1:
+                        break
+
             # Delete out of bounds (last) point on traj for ballbal
             if self.env.spec.id == "BallBalancerSim-v0":
                 del traj[-1]
@@ -256,9 +263,13 @@ class NPG:
             #trajs.append(self.clean(traj))
             trajs.append(traj)
 
-        print("Avg reward: ", (avg_reward / n))
+        avg_reward /= n
+        print("Avg reward: ", avg_reward)
         end = timer()
         print("Done rollout, ", end - start)
+        self.recent_reward = avg_reward
+
+        self.env.step(np.array([0.]))
         return trajs
 
     def clean(self, traj):
