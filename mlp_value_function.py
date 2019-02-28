@@ -65,8 +65,12 @@ class ValueFunction:
         x = torch.Tensor(states)
         y = torch.Tensor(returns).view(len(returns), 1)
 
-        for _ in range(epochs):
+        eps_list = []
+        loss_list = []
+        for eps in range(epochs):
             perm = torch.randperm(x.size()[0])
+            eps_list.append(eps)
+            loss_l = []
             for i in range(0, x.size()[0], batch_size):
                 self.optimizer.zero_grad()
 
@@ -77,17 +81,29 @@ class ValueFunction:
                 batch_pred = self.model(batch_x)
                 # Compute loss based on true data and prediction
                 loss = self.criterion(batch_pred, batch_y)
-
                 loss.backward()
                 self.optimizer.step()
+
+                loss_l.append(loss.item())
+
+            loss_lm = np.mean(loss_l)
+            loss_list.append(loss_lm)
+
+        # Plot n_eps-loss curve
+        plt.plot(eps_list, loss_list)
+        plt.xlabel("n-eps")
+        plt.ylabel("Loss")
+        plt.show()
+
+
 
         pred = self.model(x)
         print("Value-Function-Loss: ", self.criterion(pred, y).item())
 
         # Plot ground truth and prediction
         # Uncomment for debugging
-        #self.plot(pred, y, len(trajs[0]))
-        #self.plot(pred, y)
+        self.plot(pred, y, len(trajs[0]))
+        self.plot(pred, y)
 
         print("Done fitting, ", timer() - start)
 
