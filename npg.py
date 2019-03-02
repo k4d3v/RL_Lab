@@ -232,6 +232,7 @@ class NPG:
             traj = []
 
             while not done:
+                #self.env.render()
                 point = []
 
                 # Clip action if on real env
@@ -260,6 +261,7 @@ class NPG:
             if self.env.spec.id == "BallBalancerSim-v0":
                 del traj[-1]
             avg_reward += episode_reward
+            #print(len(traj))
             #trajs.append(self.clean(traj))
             trajs.append(traj)
 

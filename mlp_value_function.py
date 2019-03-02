@@ -38,7 +38,7 @@ class ValueFunction:
     """
     Represents an approximated value function
     """
-    def __init__(self, s_dim, discount=0.95):
+    def __init__(self, s_dim, discount=0.99):
         """
         Initialies the value fun
         :param discount: Discount factor
@@ -56,8 +56,8 @@ class ValueFunction:
         start = timer()
 
         # Fit for more epochs if net was newly initialized, else for less, as new vals are similar to init.
-        epochs = 400 if init else 40
-        batch_size = 64
+        epochs = 100 if init else 10
+        batch_size = 16
 
         # Compute empirical reward based on trajs
         states, returns = self.empirical_reward(trajs)
