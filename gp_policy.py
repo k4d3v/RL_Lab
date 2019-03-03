@@ -6,15 +6,13 @@ from matplotlib import pyplot as plt
 
 class GPPolicy:
     """
-    Gaussian Process with a squared exponential kernel for learning a policy
+    Gaussian Process with a squared exponential kernel for learning a policy.
+    See https://publikationen.bibliothek.kit.edu/1000019799
     """
     def __init__(self, env, n_basis=50):
         """
-        :param s_dim: Dimension of states
-        :param x: Training inputs
-        :param y: Training outputs
-        :param lambs: Hyperparam. for kernels (length-scale)
-        :param beta: Hyperparam. for covariance matrix
+        :param env: Environment
+        :param n_basis: Number of basis funs
         """
         super().__init__()
         self.env = env
@@ -28,11 +26,11 @@ class GPPolicy:
 
     def prepare_data(self, x0):
         """
-        Initializes the policy parameters (test inputs and targets)
+        Initializes the policy parameters (test inputs and targets) (see Deisenroth p. 60)
         :param x0: Initial observation
         """
         x = np.random.multivariate_normal(x0, np.diag(np.array([0.1] * self.s_dim)), self.n_basis)
-        y = np.random.normal(0, 0.01, self.n_basis)
+        y = np.random.normal(0, 0.1, self.n_basis)
         return x, y
 
     def fit_gp(self):
@@ -51,8 +49,8 @@ class GPPolicy:
         self.lambs = opti_params["k1"].k2.length_scale
         self.noise = opti_params["k2"].noise_level
         self.gp = gp
-        print("GPML kernel: %s" % gp.kernel_)
-        print(gp.kernel_.get_params())
+        #print("GPML kernel: %s" % gp.kernel_)
+        #print(gp.kernel_.get_params())
         print("Done fitting GP")
 
     def get_action(self, x):
@@ -74,7 +72,7 @@ class GPPolicy:
 
     def assign_Theta(self, params):
         """
-        Assign pesudo test inputs and targets
+        Assign pseudo test inputs and targets
         :param params: List containing x and y values for fitting
         """
         self.x = params[:self.s_dim*self.n_basis].reshape(self.n_basis, self.s_dim)
@@ -87,8 +85,8 @@ class GPPolicy:
         :param random: True, if actions are to be sampled randomly from the action space
         :return: Sampled traj
         """
-        old_observation = [np.inf]*self.s_dim
-        old_action = 0
+        #old_observation = [np.inf]*self.s_dim
+        #old_action = 0
 
         # Reset the environment
         observation = self.env.reset()
@@ -97,7 +95,7 @@ class GPPolicy:
             # Generate random params and fit GP
             self.x, self.y = self.prepare_data(observation)
             self.fit_gp()
-            # self.plot_policy()
+            self.plot_policy()
 
         episode_reward = 0.0
         done = False
@@ -105,22 +103,28 @@ class GPPolicy:
 
         while not done:
             # Show environment
-            #self.env.render()
+            self.env.render()
             point = []
 
             if not random:
                 action = self.get_action(np.asarray(observation))
+            # Apply random actions for initial rollout
             else:
                 action = self.env.action_space.sample()
-            #action = self.get_action(np.asarray(observation))
+            # Clip controls for cartpole
+            if self.env.env.spec.id != "BallBalancer-v0":
+                action = np.clip(action, -6, 6)
+            print(action)
 
             point.append(observation)  # Save state to tuple
-            point.append(action+old_action)  # Save action to tuple
+            point.append(action)  # Save action to tuple
+            #point.append(action + old_action)
             observation, reward, done, _ = self.env.step(action)  # Take action
             point.append(reward)  # Save reward to tuple
 
             episode_reward += reward
 
+            """
             # Append point if it is far enough from the previous one
             if not np.all(np.abs(observation - old_observation) < 1e-2):
                 traj.append(point)  # Add Tuple to traj
@@ -129,6 +133,9 @@ class GPPolicy:
             else:
                 old_action += action
                 print("Sampled redundant state.")
+            """
+            traj.append(point)
+
         print("Episode reward: ", episode_reward)
         return traj
 
@@ -149,8 +156,7 @@ class GPPolicy:
         :param p: Denotes which params are going to be optimized
         """
         init_all = self.param_array()
-        init = []
-        bnds = []
+        init, bnds = [], []
 
         # Store some vars
         s_low = self.env.observation_space.low

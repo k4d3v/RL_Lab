@@ -3,7 +3,7 @@ import numpy as np
 
 from pilco import PILCO
 
-np.random.seed(4)
+np.random.seed(12)
 
 env_name = 'CartpoleStabShort-v0'
 

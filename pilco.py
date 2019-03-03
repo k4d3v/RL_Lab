@@ -9,7 +9,6 @@ from torch.autograd import grad, Variable
 from timeit import default_timer as timer
 from matplotlib import pyplot as plt
 import torch.optim as optim
-from random import randint
 
 # from policy import Policy
 from gp_policy import GPPolicy as Policy
@@ -17,14 +16,16 @@ from dyn_model import DynModel
 
 
 class PILCO:
-    def __init__(self, env_name, J=1, N=3, T_init=50):
+    def __init__(self, env_name, J=10, N=3, T_init=50):
         """
         :param env_name: Name of the environment
         :param J: Number of rollouts
         :param N: Number of iterations
+        :param T_init: Initial time horizon
         """
         self.env_name = env_name
         self.env = gym.make(env_name)
+        self.env.seed(1)
         self.J = J
         self.N = N
         self.T = T_init
@@ -36,26 +37,19 @@ class PILCO:
         """
         start = timer()
 
-        # Init. environment
-        env = gym.make(self.env_name)
-        self.env = env
         # Dimension of states
-        s_dim = env.observation_space.shape[0]
+        s_dim = self.env.observation_space.shape[0]
 
         # Initial J random rollouts
         data = []
         # Sample controller params
-        policy = Policy(env)
+        policy = Policy(self.env)
         for j in range(self.J):
             # Apply random control signals and record data
             data.append(policy.rollout(True))
             # Delete redundant states across trajectories
-            data = self.regularize(data)
+            #data = self.regularize(data)
 
-            # Apply random control signals and record data
-            data.append(policy.rollout())
-            # Delete redundant states across trajectories
-            data = self.regularize(data)
         old_policy = policy
 
         # Controlled learning (N iterations)
@@ -66,7 +60,7 @@ class PILCO:
             dyn_model = DynModel(s_dim, data)
             print("Average GP error: ", dyn_model.training_error_gp())
             # Plot learnt model
-            #dyn_model.plot()
+            dyn_model.plot()
 
             i = 0
             while True:
@@ -210,14 +204,16 @@ class PILCO:
             # Store some vars for convenience
             self.prepare(apolicy)
 
-            # Generate initial test input
+            """
             # Generate input close to prior distribution
-            #x_s = [ax[:-1] for ax in dyn_model.x]  # Training data
-            # mean_samp = np.mean(x_s, axis=0)
-            # std_samp = np.std(.x_s, axis=0)
-            # x0 = np.random.multivariate_normal(mean_samp, np.diag(std_samp))
-            # x0 = x_s[randint(0, dyn_model.N - 1)]
+            x_s = [ax[:-1] for ax in dyn_model.x]  # Training data
+            mean_samp = np.mean(x_s, axis=0)
+            std_samp = np.std(x_s, axis=0)
+            x0 = np.random.multivariate_normal(mean_samp, np.diag(std_samp))
+            x0 = x_s[randint(0, dyn_model.N - 1)]
+            """
 
+            # Generate initial test input
             # First state is known, predictive mean of action can be computed and variance is zero (p.44 Deisenroth)
             x0 = dyn_model.x[0][:-1]
             # Get action from policy based on the state
@@ -439,7 +435,7 @@ class PILCO:
         # Sigma_delta = Sigma_t_1
         # cov = np.zeros((iD,D))
 
-        print("Done approximating mu and sigma delta, ", timer() - start)
+        #print("Done approximating mu and sigma delta, ", timer() - start)
         return mu_delta, Sigma_delta, cov
 
     def compute_Q(self, a, b, v, mu_t, Sigma_t):
@@ -452,7 +448,7 @@ class PILCO:
         :param Sigma_t: Predicted Sigma for t-1
         :return: n x n matrix Q
         """
-        start = timer()
+        #start = timer()
 
         n = len(self.x_s)
         D = len(self.x_s[0])
@@ -483,23 +479,7 @@ class PILCO:
                 Q[i][j] = entry
                 Q[j][i] = entry
 
-                # Old inefficient way
-                """
-                curr_xi = (self.x_s[i] - mu_t).reshape(-1, 1)
-                # self.x_s is x_schlange in paper,training input
-                kern_a = (self.alpha**2) * np.exp(-0.5 * np.dot(np.dot(curr_xi.T, self.Lambda_inv[a]), curr_xi))
-                curr_xj = (self.x_s[j] - mu_t).reshape(-1, 1)
-                kern_b = (self.alpha**2) * np.exp(-0.5 * np.dot(np.dot(curr_xj.T, self.Lambda_inv[b]), curr_xj))
-
-                # Compute R
-                z_ij = np.dot(self.Lambda_inv[a], v[i].reshape(-1, 1)) + np.dot(self.Lambda_inv[b], v[j].reshape(-1, 1))
-                # (22), Q_ij should be a scalar, Q is a n*n matrix.
-                frac = kern_a * kern_b / detsqrt
-                expo = np.exp(0.5 * np.dot(np.dot(np.dot(z_ij.T, R_inv), Sigma_t), z_ij))
-                Q_old[i][j] = frac*expo
-                """
-
-        print("Done estimating Q, ", timer() - start)
+        #print("Done estimating Q, ", timer() - start)
         return Q
 
     def prepare(self, policy):
@@ -526,8 +506,7 @@ class PILCO:
         D = self.D
         n = len(self.x_s)
 
-        # calculate K
-        # TODO: Maybe fix bugs in K computation
+        # Calculate K
         K, K_inv = [], []  # K for all input und dimension, each term is also a matrix for all input and output
         for a in range(D):
             K_dim = np.full((n, n), self.alpha ** 2)  # K_dim tmp to save the result of every dimension
