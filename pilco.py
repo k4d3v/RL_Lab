@@ -16,7 +16,7 @@ from dyn_model import DynModel
 
 
 class PILCO:
-    def __init__(self, env_name, J=10, N=3, T_init=50):
+    def __init__(self, env_name, J=20, N=3, T_init=50):
         """
         :param env_name: Name of the environment
         :param J: Number of rollouts
@@ -203,6 +203,8 @@ class PILCO:
 
             # Store some vars for convenience
             self.prepare(apolicy)
+            print("Inputs range: ", (np.min(apolicy.x), np.max(apolicy.x)))
+            print("Targets range: ", (np.min(apolicy.y), np.max(apolicy.y)))
 
             """
             # Generate input close to prior distribution

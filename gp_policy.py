@@ -103,7 +103,7 @@ class GPPolicy:
 
         while not done:
             # Show environment
-            self.env.render()
+            #self.env.render()
             point = []
 
             if not random:
@@ -114,7 +114,7 @@ class GPPolicy:
             # Clip controls for cartpole
             if self.env.env.spec.id != "BallBalancer-v0":
                 action = np.clip(action, -6, 6)
-            print(action)
+            #print(action)
 
             point.append(observation)  # Save state to tuple
             point.append(action)  # Save action to tuple
@@ -165,8 +165,8 @@ class GPPolicy:
         s_low[-1] = -np.pi
         s_high[-2] = 10
         s_high[-1] = np.pi
-        w_min = self.env.action_space.low
-        w_max = self.env.action_space.high
+        a_min = -np.arcsin(1)
+        a_max = np.arcsin(1)
 
         # Optimizing for inputs
         if p==0:
@@ -177,13 +177,13 @@ class GPPolicy:
         elif p==1:
             init = init_all[self.n_basis*self.s_dim:]
             # Bounds centers at the minimal and maximal action
-            bnds = ([(w_min, w_max)] * self.n_basis)
+            bnds = ([(a_min, a_max)] * self.n_basis)
         # Joint optimization
         elif p==-1:
             init = init_all
             # Bounds centers at the state boundary + min. and max action
             bnds = ([(lowd, highd) for lowd, highd in zip(s_low, s_high)] * self.n_basis
-                    + [(w_min, w_max)] * self.n_basis)
+                    + [(a_min, a_max)] * self.n_basis)
 
         #new_Theta = minimize(J, init, method='L-BFGS-B', jac=dJ, bounds=bnds, options={'disp': True, 'maxfun': 1}).x
         new_Theta = minimize(J, init, method='L-BFGS-B', bounds=bnds, options={'disp': True, 'maxfun': 1}).x
