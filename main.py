@@ -1,7 +1,7 @@
 """ Main file for testing the PILCO implementation."""
 import numpy as np
 
-from pilco import PILCO
+from pilco_lin import PILCO
 
 np.random.seed(12)
 

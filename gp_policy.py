@@ -53,22 +53,15 @@ class GPPolicy:
         #print(gp.kernel_.get_params())
         print("Done fitting GP")
 
-    def get_action(self, x):
+    def get_action(self, x, raw=False):
         """
         Returns a single control based on observation x
         :param x: Observation
+        :param raw: If True, the control signal want be squashed
         :return: Control
         """
-        # Squash action through sin to achieve a in [-a_max, a_max]
-        return self.a_max*np.sin(self.gp.predict([x]))
-
-    def get_raw_action(self, x):
-        """
-        Returns a single unsquashed control based on observation x
-        :param x: Observation
-        :return: Control
-        """
-        return self.gp.predict([x])
+        a_raw = self.gp.predict([x])
+        return a_raw if raw else self.a_max*np.sin(a_raw)
 
     def assign_Theta(self, params):
         """

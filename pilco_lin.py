@@ -10,12 +10,12 @@ from timeit import default_timer as timer
 from matplotlib import pyplot as plt
 import torch.optim as optim
 
-from gp_policy import GPPolicy as Policy
+from linear_policy import LinearPolicy as Policy
 from dyn_model import DynModel
 
 
 class PILCO:
-    def __init__(self, env_name, J=20, N=3, T_init=50):
+    def __init__(self, env_name, J=5, N=3, T_init=50):
         """
         :param env_name: Name of the environment
         :param J: Number of rollouts
@@ -71,21 +71,13 @@ class PILCO:
 
                     # Approx. inference for policy evaluation (Sec. 2.2)
                     # Get J^pi(policy) (10-12), (24)
-                    # J = self.get_J(dyn_model, all_params, p)
-                    J = self.get_J(dyn_model, None, p)
-
-                    # Policy improvement based on the gradient (Sec. 2.3)
-                    # Get the gradient of J (26-30)
-                    # TODO: Torch gradient
-                    dJ = self.get_dJ(all_params, p)
+                    J = self.get_J(dyn_model, all_params, p)
 
                     # Update policy (CG or L-BFGS)
-                    policy.update(J, dJ, -1)
+                    policy.update(J, p)
 
                 # Convergence check
                 if policy.check_convergence(old_policy):
-                    # Plot policy if converged
-                    # policy.plot_rbf_net()
                     # Increase time horizon
                     self.T = int(self.T * 1.25)
                     break
@@ -116,8 +108,6 @@ class PILCO:
             :return: expected return
             """
             astart = timer()
-
-            # print("Current x:", param_array)
 
             def compute_E_x_t(mu_t, sigma_t):
                 """
@@ -180,39 +170,20 @@ class PILCO:
             Ext_sum = Variable(torch.Tensor([[0]]), requires_grad=True)
 
             # Reconstruct policy
-            """
-            apolicy = Policy(self.env)
-            if p==0:
-                all_params[:apolicy.n_basis] = param_array
-            elif p==1:
-                all_params[apolicy.n_basis:apolicy.n_basis+apolicy.s_dim] = param_array
-            elif p==2:
-                all_params[apolicy.n_basis+apolicy.s_dim:] = param_array
-            apolicy.assign_Theta(all_params)
-            """
             apolicy = Policy(self.env)
             if all_params is None:
                 apolicy.assign_Theta(param_array)
             else:
                 if p == 0:
-                    all_params[:apolicy.s_dim * apolicy.n_basis] = param_array
+                    all_params[:apolicy.s_dim * apolicy.a_dim] = param_array
                 elif p == 1:
-                    all_params[apolicy.s_dim * apolicy.n_basis:] = param_array
+                    all_params[apolicy.s_dim * apolicy.a_dim:] = param_array
                 apolicy.assign_Theta(all_params)
 
             # Store some vars for convenience
-            self.prepare(apolicy)
-            print("Inputs range: ", (np.min(apolicy.x), np.max(apolicy.x)))
-            print("Targets range: ", (np.min(apolicy.y), np.max(apolicy.y)))
-
-            """
-            # Generate input close to prior distribution
-            x_s = [ax[:-1] for ax in dyn_model.x]  # Training data
-            mean_samp = np.mean(x_s, axis=0)
-            std_samp = np.std(x_s, axis=0)
-            x0 = np.random.multivariate_normal(mean_samp, np.diag(std_samp))
-            x0 = x_s[randint(0, dyn_model.N - 1)]
-            """
+            self.D = apolicy.s_dim
+            print("Psi range: ", (np.min(apolicy.Psi), np.max(apolicy.Psi)))
+            print("v range: ", (np.min(apolicy.v), np.max(apolicy.v)))
 
             # Generate initial test input
             # First state is known, predictive mean of action can be computed and variance is zero (p.44 Deisenroth)
@@ -223,8 +194,6 @@ class PILCO:
             x0 = np.array(lx0)
 
             x_t_1 = x0
-            # mu_t_1 = x0[:-1] + pred_mu[0]
-            # sigma_t_1 = np.diag([pred_Sigma[0]] * apolicy.s_dim)
             mu_t_1 = x0[:-1]
             sigma_t_1 = np.diag([0] * apolicy.s_dim)
 
@@ -233,8 +202,6 @@ class PILCO:
             print("Number of time steps: ", self.T)
             traj = [x0]
             for t in range(self.T):
-                # print("Time step ", t)
-
                 # (2)
                 Ext_sum_np = Ext_sum.detach().numpy()
                 Ext_sum_np += compute_E_x_t(mu_t_1, sigma_t_1)
@@ -253,10 +220,11 @@ class PILCO:
 
                 # Next state is gaussian distributed,
                 # so the predictive mean and covariance of the action have to be computed (Deisenroth p.45)
-                mu_u, Sigma_u, crosscov = self.approximate_p_delta_t(dyn_model, apolicy, x_t_1)
+                mu_u, Sigma_u = apolicy.pred_distro(mu_t, sigma_t)
                 mu_squashed_u = np.exp(-Sigma_u/2)*apolicy.a_max*np.sin(mu_u)
 
                 # Compute joint distribution of x_t_1 and the unsquashed action distribution
+                crosscov = np.zeros((apolicy.s_dim, apolicy.a_dim))
                 mu_joint = np.concatenate((mu_t, mu_u))
                 Sigma_joint = np.block([[sigma_t, crosscov], [crosscov.T, Sigma_u]])
 
@@ -291,43 +259,6 @@ class PILCO:
 
         # Return the function for computing the expected returns
         return J
-
-    def get_dJ(self, all_params, p):
-        """
-        Returns a function which can estimate the gradient of the expected return
-        :param all_params: Policy parameters
-        :param p: Denotes which params are to be varied
-        :return: function dJ
-        """
-
-        def dJ(param_array):
-            """
-            :param param_array: Array containing the initial parameters for optimization
-            :return: Gradient of expected returns w.r.t. policy param.s
-            """
-            # Reconstruct policy
-            apolicy = Policy(self.env)
-            if p == 0:
-                all_params[:apolicy.n_basis] = param_array
-            elif p == 1:
-                all_params[apolicy.n_basis:apolicy.n_basis + apolicy.s_dim] = param_array
-            elif p == 2:
-                all_params[apolicy.n_basis + apolicy.s_dim:] = param_array
-            apolicy.assign_Theta(all_params)
-
-            # TODO: Torch grads
-            # TODO: Maybe other deriv.s are also needed despite torch?
-            # (26) Derivative of expected returns w.r.t. policy params
-            polpar = list(apolicy.Theta.values())
-            optimizer = optim.Adam(polpar)
-            Ext = self.Ext_sum
-            Ext.backward()
-            optimizer.step()
-            dExt = grad(Ext, polpar)
-            return dExt
-
-        # Return the function for computing the gradients
-        return dJ
 
     def approximate_p_delta_t(self, dyn_model, policy, x):
         """
@@ -482,49 +413,6 @@ class PILCO:
 
         #print("Done estimating Q, ", timer() - start)
         return Q
-
-    def prepare(self, policy):
-        """
-        Define some important vars
-        :param policy: GP policy
-        """
-        self.D = policy.s_dim
-        length_scale = policy.lambs
-        self.Lambda = [np.diag(np.array([length_scale[a]] * self.D)) for a in range(self.D)]
-        self.Lambda_inv = [np.linalg.inv(Lamb) for Lamb in self.Lambda]
-        self.alpha = policy.alpha
-        self.x_s = policy.x  # Training data
-        self.noise = policy.noise
-        # Compute Gram matrix and its inverse for each dimension
-        self.compute_K()
-
-    def compute_K(self):
-        """
-        Precomputes the Gram matrix of the policy and its inverse for each dimension
-        """
-        start = timer()
-
-        D = self.D
-        n = len(self.x_s)
-
-        # Calculate K
-        K, K_inv = [], []  # K for all input und dimension, each term is also a matrix for all input and output
-        for a in range(D):
-            K_dim = np.full((n, n), self.alpha ** 2)  # K_dim tmp to save the result of every dimension
-            for i in range(n):
-                for j in range(i + 1, n):
-                    # (6)
-                    curr_x = (self.x_s[i] - self.x_s[j]).reshape(-1, 1)
-                    # self.x_s is x_schlange in paper,training input
-                    kern = (self.alpha ** 2) * np.exp(-0.5 * (np.dot(np.dot(curr_x.T, self.Lambda_inv[a]), curr_x)))
-                    K_dim[i][j] = kern
-                    K_dim[j][i] = kern
-            K.append(K_dim)
-            K_inv.append(np.linalg.inv(K_dim + self.noise * np.eye(n)))
-
-        self.K = K
-        self.K_inv = K_inv
-        print("Done precomputing K and K^-1, ", timer() - start)
 
     def regularize(self, data):
         """
