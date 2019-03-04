@@ -1,16 +1,17 @@
 import numpy as np
 from scipy.optimize import minimize
 
+
 class LinearPolicy:
     """
     Linear policy with weights Psi and an offset v
     See https://publikationen.bibliothek.kit.edu/1000019799
     """
+
     def __init__(self, env):
         """
         :param env: Environment
         """
-        super().__init__()
         self.env = env
         self.s_dim = env.observation_space.shape[0]
         self.a_dim = env.action_space.shape[0]
@@ -27,7 +28,7 @@ class LinearPolicy:
         :return: Control
         """
         a_raw = np.add(np.dot(self.Psi, x), self.v).reshape(self.a_dim, )
-        return a_raw if raw else self.a_max*np.sin(a_raw)
+        return a_raw if raw else self.a_max * np.sin(a_raw)
 
     def rollout(self, random=False, render=False):
         """
@@ -56,7 +57,7 @@ class LinearPolicy:
             # Clip controls for cartpole
             if self.env.env.spec.id != "BallBalancer-v0":
                 action = np.clip(action, -6, 6)
-            #print(action)
+            # print(action)
 
             point.append(observation)  # Save state to tuple
             point.append(action)  # Save action to tuple

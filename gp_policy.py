@@ -4,23 +4,24 @@ from sklearn.gaussian_process.kernels import ConstantKernel, RBF, WhiteKernel
 from scipy.optimize import minimize
 from matplotlib import pyplot as plt
 
+
 class GPPolicy:
     """
     Gaussian Process with a squared exponential kernel for learning a policy.
     See https://publikationen.bibliothek.kit.edu/1000019799
     """
+
     def __init__(self, env, n_basis=50):
         """
         :param env: Environment
         :param n_basis: Number of basis funs
         """
-        super().__init__()
         self.env = env
         self.s_dim = env.observation_space.shape[0]
         self.a_dim = env.action_space.shape[0]
         self.a_max = self.env.action_space.high
         self.n_basis = n_basis
-        #self.n_params = 2
+        # self.n_params = 2
         self.n_params = 1
         self.x, self.y = None, None
 
@@ -49,8 +50,8 @@ class GPPolicy:
         self.lambs = opti_params["k1"].k2.length_scale
         self.noise = opti_params["k2"].noise_level
         self.gp = gp
-        #print("GPML kernel: %s" % gp.kernel_)
-        #print(gp.kernel_.get_params())
+        # print("GPML kernel: %s" % gp.kernel_)
+        # print(gp.kernel_.get_params())
         print("Done fitting GP")
 
     def get_action(self, x, raw=False):
@@ -61,15 +62,15 @@ class GPPolicy:
         :return: Control
         """
         a_raw = self.gp.predict([x])
-        return a_raw if raw else self.a_max*np.sin(a_raw)
+        return a_raw if raw else self.a_max * np.sin(a_raw)
 
     def assign_Theta(self, params):
         """
         Assign pseudo test inputs and targets
         :param params: List containing x and y values for fitting
         """
-        self.x = params[:self.s_dim*self.n_basis].reshape(self.n_basis, self.s_dim)
-        self.y = params[self.s_dim*self.n_basis:]
+        self.x = params[:self.s_dim * self.n_basis].reshape(self.n_basis, self.s_dim)
+        self.y = params[self.s_dim * self.n_basis:]
         self.fit_gp()
 
     def rollout(self, random=False):
@@ -78,8 +79,8 @@ class GPPolicy:
         :param random: True, if actions are to be sampled randomly from the action space
         :return: Sampled traj
         """
-        #old_observation = [np.inf]*self.s_dim
-        #old_action = 0
+        # old_observation = [np.inf]*self.s_dim
+        # old_action = 0
 
         # Reset the environment
         observation = self.env.reset()
@@ -96,7 +97,7 @@ class GPPolicy:
 
         while not done:
             # Show environment
-            #self.env.render()
+            # self.env.render()
             point = []
 
             if not random:
@@ -107,11 +108,11 @@ class GPPolicy:
             # Clip controls for cartpole
             if self.env.env.spec.id != "BallBalancer-v0":
                 action = np.clip(action, -6, 6)
-            #print(action)
+            # print(action)
 
             point.append(observation)  # Save state to tuple
             point.append(action)  # Save action to tuple
-            #point.append(action + old_action)
+            # point.append(action + old_action)
             observation, reward, done, _ = self.env.step(action)  # Take action
             point.append(reward)  # Save reward to tuple
 
@@ -139,7 +140,7 @@ class GPPolicy:
         """
         pl = [self.x, self.y]
         params = [list(param.flatten()) for param in pl]
-        return np.array(params[0]+params[1])
+        return np.array(params[0] + params[1])
 
     def update(self, J, dJ, p):
         """
@@ -162,31 +163,31 @@ class GPPolicy:
         a_max = np.arcsin(1)
 
         # Optimizing for inputs
-        if p==0:
-            init = init_all[:self.n_basis*self.s_dim]
+        if p == 0:
+            init = init_all[:self.n_basis * self.s_dim]
             # Bounds centers at the state boundary
             bnds = ([(lowd, highd) for lowd, highd in zip(s_low, s_high)] * self.n_basis)
         # Optimizing for targets
-        elif p==1:
-            init = init_all[self.n_basis*self.s_dim:]
+        elif p == 1:
+            init = init_all[self.n_basis * self.s_dim:]
             # Bounds centers at the minimal and maximal action
             bnds = ([(a_min, a_max)] * self.n_basis)
         # Joint optimization
-        elif p==-1:
+        elif p == -1:
             init = init_all
             # Bounds centers at the state boundary + min. and max action
             bnds = ([(lowd, highd) for lowd, highd in zip(s_low, s_high)] * self.n_basis
                     + [(a_min, a_max)] * self.n_basis)
 
-        #new_Theta = minimize(J, init, method='L-BFGS-B', jac=dJ, bounds=bnds, options={'disp': True, 'maxfun': 1}).x
+        # new_Theta = minimize(J, init, method='L-BFGS-B', jac=dJ, bounds=bnds, options={'disp': True, 'maxfun': 1}).x
         new_Theta = minimize(J, init, method='L-BFGS-B', bounds=bnds, options={'disp': True, 'maxfun': 1}).x
         print("Optimization of policy params done.")
         new_Theta_all = init_all
 
-        if p==0:
-            new_Theta_all[:self.s_dim*self.n_basis] = new_Theta
-        elif p==1:
-            new_Theta_all[self.s_dim*self.n_basis:] = new_Theta
+        if p == 0:
+            new_Theta_all[:self.s_dim * self.n_basis] = new_Theta
+        elif p == 1:
+            new_Theta_all[self.s_dim * self.n_basis:] = new_Theta
         elif p == -1:
             new_Theta_all[:] = new_Theta
 
@@ -200,7 +201,7 @@ class GPPolicy:
         """
         new_Theta = self.param_array()
         old_Theta = old_policy.param_array()
-        return np.all(np.abs(new_Theta-old_Theta) < 0.1)
+        return np.all(np.abs(new_Theta - old_Theta) < 0.1)
 
     def plot_policy(self):
         """
