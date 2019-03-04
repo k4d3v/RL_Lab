@@ -144,5 +144,5 @@ class LinearPolicy:
         :return: mean and covariance of predictive distro
         """
         E = self.get_action(mu, True)
-        cov = np.dot(np.dot(self.Psi, Sigma), self.Psi.T)
+        cov = np.dot(np.dot(self.Psi, Sigma), self.Psi.T).reshape(self.a_dim, )
         return E, cov

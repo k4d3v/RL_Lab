@@ -210,32 +210,35 @@ class PILCO:
                 # under 2.1
                 # (10)
                 pred_mu, pred_Sigma = dyn_model.predict([x_t_1])  # Predict mean and var for next state
-                mu_t = mu_t_1 + pred_mu[0]
-
+                mu_t_1 += pred_mu[0]
                 # (11)
-                # TODO: Fix (See Deisenroth)
-                # Compute eigenvalues (for debugging)
-                sigma_t = np.diag(pred_Sigma[0])
-                ew, _ = np.linalg.eig(sigma_t)
+                sigma_t_1 = np.diag(pred_Sigma[0])
 
+                # 1) Compute pred. distro over actions
                 # Next state is gaussian distributed,
                 # so the predictive mean and covariance of the action have to be computed (Deisenroth p.45)
-                mu_u, Sigma_u = apolicy.pred_distro(mu_t, sigma_t)
-                mu_squashed_u = np.exp(-Sigma_u/2)*apolicy.a_max*np.sin(mu_u)
+                mu_u, Sigma_u = apolicy.pred_distro(mu_t_1, sigma_t_1)  # a)
+                mu_squashed_u = np.exp(-Sigma_u/2)*apolicy.a_max*np.sin(mu_u)   # b)
 
-                # Compute joint distribution of x_t_1 and the unsquashed action distribution
+                # 2) Joint distro over state and squashed action
+                # a) Compute joint distribution of x_t_1 and the unsquashed action distribution
+                # b) Fully joint distro; Marginalize out unsquashed
                 crosscov = np.zeros((apolicy.s_dim, apolicy.a_dim))
-                mu_joint = np.concatenate((mu_t, mu_u))
-                Sigma_joint = np.block([[sigma_t, crosscov], [crosscov.T, Sigma_u]])
+                mu_joint = np.concatenate((mu_t_1, mu_squashed_u))
+                Sigma_joint = np.block([[sigma_t_1, crosscov], [crosscov.T, Sigma_u]])
+
+                # 3) Distro of change in state
+                mu_delta, Sigma_delta, cov = 0,0,0
+                #mu_delta, Sigma_delta, cov = self.approximate_p_delta_t(mu_joint, Sigma_joint)
+
+                mu_t = mu_t_1 + mu_delta
+                sigma_t = sigma_t_1 + Sigma_delta + cov+cov.T
 
                 x_t = np.random.multivariate_normal(mu_t, sigma_t)  # Sample state x from predicted distribution
                 # Get action from policy based on the state
                 lx = list(x_t)
                 lx.append(apolicy.get_action(x_t))
                 x_t = np.array(lx)
-
-                # mu_t = mu_t_1 + mu_delta
-                # sigma_t = sigma_t_1 + Sigma_delta + cov+cov.T
 
                 # Update x, mu and sigma
                 traj.append(x_t)
@@ -260,12 +263,9 @@ class PILCO:
         # Return the function for computing the expected returns
         return J
 
-    def approximate_p_delta_t(self, dyn_model, policy, x):
+    def approximate_p_delta_t(self, mu, Sigma):
         """
         Approximates the predictive distribution for a Gaussian-sampled x
-        :param dyn_model: GP dynamics model
-        :param policy: Current policy
-        :param x: Test input value
         :return: mu and sigma delta and cov of the predictive distribution
         """
         start = timer()
@@ -288,18 +288,6 @@ class PILCO:
         #y = np.mat(policy.y)  # Training outputs
         y = policy.y.reshape(-1, 1)
         v = np.zeros((n, iD))
-
-        """
-        a_pred = policy.get_action(x[:-1], True)
-
-        # self.x_s is x_schlange in paper,training input
-        k_xX = np.zeros((len(y), 1))
-        for i in range(len(y)):
-            curr_x = (self.x_s[i] - x[:-1]).reshape(-1, 1)
-            kern = (self.alpha ** 2) * np.exp(-0.5 * (np.dot(np.dot(curr_x.T, self.Lambda_inv[0]), curr_x)))
-            k_xX[i] = kern
-        xx = np.dot(k_xX.T, np.dot(self.K_inv[0], y))
-        """
 
         # calculate q_ai
         for i in range(n):
@@ -367,7 +355,7 @@ class PILCO:
         # Sigma_delta = Sigma_t_1
         # cov = np.zeros((iD,D))
 
-        #print("Done approximating mu and sigma delta, ", timer() - start)
+        print("Done approximating mu and sigma delta, ", timer() - start)
         return mu_delta, Sigma_delta, cov
 
     def compute_Q(self, a, b, v, mu_t, Sigma_t):
