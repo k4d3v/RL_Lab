@@ -162,7 +162,7 @@ class NPG:
             for timestep in traj:
                 obs, act, _ = timestep
                 grad = self.policy.get_gradient(torch.Tensor(obs).view(self.s_dim, 1), torch.from_numpy(act.ravel()))
-                #grad = self.policy.get_gradient_analy(torch.Tensor(obs).view(self.s_dim, 1),
+                # grad = self.policy.get_gradient_analy(torch.Tensor(obs).view(self.s_dim, 1),
                 #                                      torch.from_numpy(act.ravel()))
                 traj_grads.append(grad)
             all_grads.append(traj_grads)
@@ -171,7 +171,7 @@ class NPG:
         print("Done log grads, ", end - start)
         return all_grads
 
-    def compute_adv(self, trajs, vals, gamma=0.95, lamb=0.97):
+    def compute_adv(self, trajs, vals, gamma=0.99, lamb=0.95):
         """
         Computes the advantages based on the sampled trajs
         See High-Dimensional Continuous Control Using Generalized Advantage Estimation, p.5
@@ -232,8 +232,9 @@ class NPG:
             done = False
             traj = []
 
-            while not done:
-                #self.env.render()
+            n_samps = 0
+            while not done and n_samps < 1000:
+                # self.env.render()
                 point = []
 
                 # Clip action if on real env
@@ -251,19 +252,21 @@ class NPG:
 
                 if self.env.spec.id == "CartpoleStabRR-v0":
                     min_s0, max_s0 = self.env.observation_space.low[0], self.env.observation_space.high[0]
-                    distl = np.abs(observation[0]-min_s0)
-                    distr = np.abs(observation[0]-max_s0)
-                    #print(distl)
-                    #print(distr)
-                    if distl<0.1 or distr<0.1:
+                    distl = np.abs(observation[0] - min_s0)
+                    distr = np.abs(observation[0] - max_s0)
+                    # print(distl)
+                    # print(distr)
+                    if distl < 0.1 or distr < 0.1:
                         break
+
+                n_samps += 1
 
             # Delete out of bounds (last) point on traj for ballbal
             if self.env.spec.id == "BallBalancerSim-v0":
                 del traj[-1]
             avg_reward += episode_reward
-            #print(len(traj))
-            #trajs.append(self.clean(traj))
+            # print(len(traj))
+            # trajs.append(self.clean(traj))
             trajs.append(traj)
 
         avg_reward /= n
@@ -283,7 +286,7 @@ class NPG:
         """
         t = 1
         while t < len(traj):
-            if np.all(np.abs(traj[t][0] - traj[t - 1][0]) < 5e-3) and np.abs(traj[t][2]-traj[t-1][2]) < 1e-3:
+            if np.all(np.abs(traj[t][0] - traj[t - 1][0]) < 5e-3) and np.abs(traj[t][2] - traj[t - 1][2]) < 1e-3:
                 # Remove previous sample
                 del traj[t - 1]
             else:

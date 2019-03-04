@@ -41,7 +41,7 @@ class ValueFunction:
         :param discount: Discount factor
         """
         self.discount = discount
-        self.model = Net(s_dim, 2*s_dim, 1)
+        self.model = Net(s_dim, 20, 1)
         self.criterion = torch.nn.MSELoss()
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-3)
 
@@ -53,8 +53,8 @@ class ValueFunction:
         start = timer()
 
         # Fit for more epochs if net was newly initialized, else for less, as new vals are similar to init.
-        epochs = 800 if init else 100
-        batch_size = 32
+        epochs = 400 if init else 100
+        batch_size = 64
 
         # Compute empirical reward based on trajs
         states, returns = self.empirical_reward(trajs)
