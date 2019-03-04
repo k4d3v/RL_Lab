@@ -31,12 +31,14 @@ class Evaluator:
 
         #acts = []
         for _ in range(n):
+            n_steps=0
             # Reset the environment
             observation = self.env.reset()
             episode_reward = 0.0
             done = False
 
             while not done:
+                n_steps+=1
                 if render:
                    self.env.render()
 
@@ -58,7 +60,7 @@ class Evaluator:
                     #print(distr)
                     if distl<0.1 or distr<0.1:
                         break
-
+            #print(n_steps)
             if episode_reward > max_reward:
                 max_reward = episode_reward
             if episode_reward < min_reward:

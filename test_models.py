@@ -23,8 +23,8 @@ env_names = ['CartpoleStabShort-v0']
 for env_name in env_names:
     print(env_name)
 
-    iters = [200]  # Number of iterations of training
-    traj_samps = 0.0055 # Number of sampled trajs per iteration during training
+    iters = [100]  # Number of iterations of training
+    traj_samps = 20 # Number of sampled trajs per iteration during training
 
     for i in iters:
         policy = pickle.load(open("policies/"+env_name+"_"+str(i)+"_"+str(traj_samps)+".slp", "rb" ))
