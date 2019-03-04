@@ -29,7 +29,7 @@ class LinearPolicy:
         a_raw = np.add(np.dot(self.Psi, x), self.v).reshape(self.a_dim, )
         return a_raw if raw else self.a_max*np.sin(a_raw)
 
-    def rollout(self, random=False):
+    def rollout(self, random=False, render=False):
         """
         Samples a traj from performing actions based on the current policy
         :param random: True, if actions are to be sampled randomly from the action space
@@ -44,7 +44,8 @@ class LinearPolicy:
 
         while not done:
             # Show environment
-            #self.env.render()
+            if render:
+                self.env.render()
             point = []
 
             if not random:

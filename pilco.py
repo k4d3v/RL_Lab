@@ -95,7 +95,7 @@ class PILCO:
 
             # Apply new optimal policy to system (One episode) and record
             data.append(policy.rollout())
-            data = self.regularize(data)
+            #data = self.regularize(data)
 
         print("Training done, ", timer() - start)
         return policy

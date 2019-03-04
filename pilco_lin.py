@@ -15,7 +15,7 @@ from dyn_model import DynModel
 
 
 class PILCO:
-    def __init__(self, env_name, J=5, N=3, T_init=50):
+    def __init__(self, env_name, J=20, N=3, T_init=50):
         """
         :param env_name: Name of the environment
         :param J: Number of rollouts
@@ -59,7 +59,7 @@ class PILCO:
             dyn_model = DynModel(s_dim, data)
             print("Average GP error: ", dyn_model.training_error_gp())
             # Plot learnt model
-            dyn_model.plot()
+            #dyn_model.plot()
 
             i = 0
             while True:
@@ -87,7 +87,7 @@ class PILCO:
 
             # Apply new optimal policy to system (One episode) and record
             data.append(policy.rollout())
-            data = self.regularize(data)
+            #data = self.regularize(data)
 
         print("Training done, ", timer() - start)
         return policy
