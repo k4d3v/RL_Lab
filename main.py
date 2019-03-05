@@ -21,7 +21,7 @@ def settings(env_name):
     if env_name == 'CartpoleStabShort-v0' or env_name == 'CartpoleStabLong-v0':
         num_iters = range(0, 101, 10)
         delta = 0.001
-        traj_samples_list = [20]
+        traj_samples_list = [5, 10, 20]
     elif env_name == 'CartpoleSwingShort-v0' or env_name == 'CartpoleSwingLong-v0':
         num_iters = [0, 10, 20, 30, 40, 50]
         delta = 0.05

@@ -7,7 +7,7 @@ from matplotlib import pyplot as plt
 
 import npg
 import linear_policy
-import mlp_value_function
+import mlp_value_function_2 as mlp_value_function
 import evaluate
 
 
@@ -19,7 +19,7 @@ def settings(env_name):
     """
     num_iters, delta, traj_samples = [], [], 100
     if env_name == 'CartpoleStabShort-v0' or env_name == 'CartpoleStabLong-v0':
-        num_iters = range(0, 101, 20)
+        num_iters = range(0, 101, 10)
         delta = np.linspace(5e-4, 2e-3, 3)
         traj_samples = 20
     elif env_name == 'CartpoleSwingShort-v0' or env_name == 'CartpoleSwingLong-v0':
