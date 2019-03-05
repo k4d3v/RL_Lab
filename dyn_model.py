@@ -26,7 +26,7 @@ class DynModel:
 
         self.alpha = np.ones(self.s_dim)
         self.lambs = np.ones(self.s_dim)
-        self.noise = np.full(self.s_dim, 1e-5)
+        self.noise = np.full(self.s_dim, 1e-3)
         self.gp = []
 
         # Fit a GP for each dimension
@@ -63,20 +63,19 @@ class DynModel:
         Fits a sklearn GP based on the training data
         :param d: Current dimension
         """
-        kern = ConstantKernel(self.alpha[d]**2, constant_value_bounds=(1, 9)) \
-               * RBF(length_scale=self.lambs[d], length_scale_bounds=np.array([0.2, 1])) \
+        kern = ConstantKernel(self.alpha[d]**2, constant_value_bounds=(1e-5, 9)) \
+               * RBF(length_scale=self.lambs[d], length_scale_bounds=np.array([0.1, 2])) \
                + WhiteKernel(noise_level=self.noise[d])
         #gp = GaussianProcessRegressor(kernel=kern, optimizer=None)
         gp = GaussianProcessRegressor(kernel=kern, n_restarts_optimizer=10)
         gp.fit([[x[d]] for x in self.x], [[y[d]] for y in self.y])
-        # self.lambs = gp.kernel_.get_params()["length_scale"]
         opti_params = gp.kernel_.get_params()
         self.alpha[d] = np.sqrt(opti_params["k1"].k1.constant_value)
         self.lambs[d] = opti_params["k1"].k2.length_scale
         self.noise[d] = opti_params["k2"].noise_level
         self.gp.append(gp)
         print("GPML kernel: %s" % gp.kernel_)
-        print(gp.kernel_.get_params())
+        #print(gp.kernel_.get_params())
         print("Done fitting GP")
 
     def plot(self, x_test=None, y_pred=None, sigma=None):
