@@ -15,7 +15,7 @@ from dyn_model import DynModel
 
 
 class PILCO:
-    def __init__(self, env_name, J=1, N=5, T_init=50):
+    def __init__(self, env_name, J=1, N=1, T_init=10):
         """
         :param env_name: Name of the environment
         :param J: Number of rollouts
@@ -112,6 +112,7 @@ class PILCO:
             def compute_E_x_t(mu_t, sigma_t):
                 """
                 Computes the expected return for specific mu and sigma for a time step
+                See https://pdfs.semanticscholar.org/c9f2/1b84149991f4d547b3f0f625f710750ad8d9.pdf Page 54
                 :param mu_t: Mean at time step t
                 :param sigma_t: Sigma at time step t
                 :return: E_x_t : expected return at t
@@ -124,20 +125,7 @@ class PILCO:
                 # in KIT's paper,sigma_c is represented by a,in the example on page 64, a=  0.25
                 l_p = 0.6413  # pendulum length, l_p = 0.6413 m, see User Manual
 
-                """ https://pdfs.semanticscholar.org/c9f2/1b84149991f4d547b3f0f625f710750ad8d9.pdf 
-                    Page 54(66 of 217)  """
-                I = np.eye(3)
-
-                # TODO: what is C and T? Example see Page 64 (3.71)
-                """
-                T_inv = np.zeros((D,D))
-                T_inv[0][0] = 1
-                T_inv[0][1] = l_p
-                T_inv[1][0] = l_p
-                T_inv[1][1] = l_p**2
-                T_inv[2][2] = l_p**2
-                T_inv *= sigma_c**(-2)
-                """
+                # Example see Page 64 (3.71)
                 C = np.mat(np.array([[1, l_p, 0], [0, 0, l_p]]))
                 T_inv = (sigma_c ** -2) * C.T * C
                 # T_inv = np.eye(3)
@@ -148,18 +136,17 @@ class PILCO:
                 sigma_t = sigma_t[:-2].T
 
                 # KIT: (3.46)
-                IST = I + np.dot(sigma_t, T_inv)
+                IST = np.eye(3) + np.dot(sigma_t, T_inv)
                 S = np.dot(T_inv, np.linalg.inv(IST))
 
                 # KIT: (3.45)
-                # TODO: fact is too small because of big T_inv and big sigma_t (Maybe predicted vals are still not quite true)
                 fact = 1 / np.sqrt(np.linalg.det(IST))
                 # fact = 1
                 # print("Cost factor (Should be close to 1, if sigma is small): ", fact)
                 expo = np.exp(-0.5 * np.dot(np.dot((mu_t - x_target).T, S), (mu_t - x_target)))
                 E_x_t = 1 - fact * expo
 
-                # TODO: E_x_t should be 0, if target is reached!
+                # E_x_t should be 0, if target is reached!
                 # For debugging
                 E_x_t_target = 1 - fact * np.exp(
                     -0.5 * np.dot(np.dot((x_target - x_target).T, S), (x_target - x_target)))

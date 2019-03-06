@@ -14,4 +14,5 @@ optimal_policy = agent.train()
 for _ in range(100):
     optimal_policy.rollout(render=True)
 
-pickle.dump(optimal_policy, open(env_name+".p", "wb"))
+# Save policy params
+pickle.dump(optimal_policy.param_array(), open(env_name+".p", "wb"))
