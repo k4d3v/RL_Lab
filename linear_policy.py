@@ -113,16 +113,18 @@ class LinearPolicy:
             # Bounds centers at the state boundary + min. and max action
             bnds = ([(-1, 1) for _ in range(self.s_dim)] * self.a_dim + [(-1, 1)] * self.a_dim)
 
-        new_Theta = minimize(J, init, method='L-BFGS-B', bounds=bnds, options={'disp': True, 'maxfun': 1}).x
+        new_Theta = minimize(J, init, method='L-BFGS-B', bounds=bnds, options={'disp': True}).x
         print("Optimization of policy params done.")
         new_Theta_all = init_all
 
+        print("Old params: ", init)
         if p == 0:
             new_Theta_all[:self.s_dim * self.a_dim] = new_Theta
         elif p == 1:
             new_Theta_all[self.s_dim * self.a_dim:] = new_Theta
         elif p == -1:
             new_Theta_all[:] = new_Theta
+        print("New params: ", new_Theta)
 
         self.assign_Theta(new_Theta_all)
 
@@ -134,7 +136,7 @@ class LinearPolicy:
         """
         new_Theta = self.param_array()
         old_Theta = old_policy.param_array()
-        return np.all(np.abs(new_Theta - old_Theta) < 0.1)
+        return np.all(np.abs(new_Theta - old_Theta) < 1e-3)
 
     def pred_distro(self, mu, Sigma):
         """

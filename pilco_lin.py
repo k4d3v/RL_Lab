@@ -59,7 +59,7 @@ class PILCO:
             dyn_model = DynModel(s_dim, data)
             print("Average GP error: ", dyn_model.training_error_gp())
             # Plot learnt model
-            dyn_model.plot()
+            #dyn_model.plot()
 
             i = 0
             while True:
