@@ -4,18 +4,15 @@ http://www.icml-2011.org/papers/323_icmlpaper.pdf"""
 import gym
 import quanser_robots
 import numpy as np
-import torch
-from torch.autograd import grad, Variable
 from timeit import default_timer as timer
 from matplotlib import pyplot as plt
-import torch.optim as optim
 
 from linear_policy import LinearPolicy as Policy
 from dyn_model import DynModel
 
 
 class PILCO:
-    def __init__(self, env_name, J=1, N=1, T_init=10):
+    def __init__(self, env_name, J=2, N=10, T_init=50):
         """
         :param env_name: Name of the environment
         :param J: Number of rollouts
@@ -67,6 +64,8 @@ class PILCO:
 
                 # Loop over number of params
                 for p in range(policy.n_params):
+                # Comment above and uncomment below to optimize jointly
+                #for p in [-1]:
                     all_params = policy.param_array()
 
                     # Approx. inference for policy evaluation (Sec. 2.2)
@@ -154,7 +153,7 @@ class PILCO:
                 # print("Ext done", timer() - start)
                 return E_x_t
 
-            Ext_sum = Variable(torch.Tensor([[0]]), requires_grad=True)
+            Ext_sum = 0
 
             # Reconstruct policy
             apolicy = Policy(self.env)
@@ -190,9 +189,7 @@ class PILCO:
             traj = [x0]
             for t in range(self.T):
                 # (2)
-                Ext_sum_np = Ext_sum.detach().numpy()
-                Ext_sum_np += compute_E_x_t(mu_t_1, sigma_t_1)
-                Ext_sum = Variable(torch.Tensor(Ext_sum_np), requires_grad=True)
+                Ext_sum += compute_E_x_t(mu_t_1, sigma_t_1)
 
                 # under 2.1
                 # (10)
@@ -222,9 +219,7 @@ class PILCO:
                 sigma_t_1 = sigma_t
 
             # (2)
-            Ext_sum_np = Ext_sum.detach().numpy()
-            Ext_sum_np += compute_E_x_t(mu_t_1, sigma_t_1)
-            Ext_sum = Variable(torch.Tensor(Ext_sum_np), requires_grad=True)
+            Ext_sum += compute_E_x_t(mu_t_1, sigma_t_1)
 
             print("Expected costs: ", Ext_sum.item())
             print("J done, ", timer() - astart)
@@ -233,7 +228,7 @@ class PILCO:
             #self.plot_traj(traj)
 
             self.Ext_sum = Ext_sum
-            return Ext_sum.item()
+            return Ext_sum
 
         # Return the function for computing the expected returns
         return J
@@ -265,10 +260,12 @@ class PILCO:
         mu_delta, Sigma_delta, cov = self.approximate_p_delta_t(mu_joint, Sigma_joint)
         sigmad = Sigma_delta + cov + cov.T
 
+        """
         # Compute eigenvals for debugging
         ew, _ = np.linalg.eig(Sigma_delta)
         ew2, _ = np.linalg.eig(cov + cov.T)
         ew3, _ = np.linalg.eig(sigmad)
+        """
 
         #print("Done approximating succ. state distro, ", timer() - start)
         return mu_delta, sigmad
@@ -336,7 +333,6 @@ class PILCO:
                     Sigma_delta[a][b] = E_delta - mu_prod + E_var
 
         # Compute covariance matrix (See (12)/ 2.70 Deisenroth)
-        # TODO: Vectorize
         mu_s = mu[:E]
         Sigma_s = (Sigma[:E].T[:E]).T
         cov = np.zeros((E, E))

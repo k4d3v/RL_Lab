@@ -1,8 +1,4 @@
 import numpy as np
-import torch
-from scipy.optimize import minimize
-from torch.autograd import Variable, grad
-from torch.distributions import Normal
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RBF, WhiteKernel, ConstantKernel
 from matplotlib import pyplot as plt
