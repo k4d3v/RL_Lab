@@ -10,11 +10,12 @@ class SimpleLinearPolicy:
     like described in 'Towards Generalization and Simplicity in Continuous Control', p.4"""
 
     def __init__(self, env):
+        torch.manual_seed(1)
         self.s_dim = env.observation_space.shape[0]
         # Init W and bias to 0 and standard deviation such that 3*sigma=max_action
-        self.W = [Variable(torch.Tensor([0]), requires_grad=True) for d in range(self.s_dim)]
-        self.b = Variable(torch.Tensor([0]), requires_grad=True)
-        self.std = Variable(torch.Tensor([env.action_space.high/3]), requires_grad=True)
+        self.W = [Variable(torch.rand(0), requires_grad=True) for d in range(self.s_dim)]
+        self.b = Variable(torch.rand(0), requires_grad=True)
+        self.std = Variable(torch.rand(0), requires_grad=True)
 
     def get_dist(self, state):
         """
@@ -60,7 +61,9 @@ class SimpleLinearPolicy:
 
         grad_W = [((1 / (self.std ** 2)) * (action - mean) * s).detach().numpy()[0][0] for s in state]
         grad_b = ((1 / (self.std ** 2)) * (action - mean)).detach().numpy()[0][0]
-        grad_std = ((-1 / (2 * self.std ** 2)) * (1 - (1 / (self.std ** 2)) * (action - mean) ** 2) * 2 * self.std).detach().numpy()[0][0]
+        grad_std = \
+            ((-1 / (2 * self.std ** 2)) *
+             (1 - (1 / (self.std ** 2)) * (action - mean) ** 2) * 2 * self.std).detach().numpy()[0][0]
         return np.array(grad_W + [grad_b] + [grad_std])
 
     def get_action(self, state):

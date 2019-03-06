@@ -171,7 +171,7 @@ class NPG:
         print("Done log grads, ", end - start)
         return all_grads
 
-    def compute_adv(self, trajs, vals, gamma=0.99, lamb=0.95):
+    def compute_adv(self, trajs, vals, gamma=0.98, lamb=0.96):
         """
         Computes the advantages based on the sampled trajs
         See High-Dimensional Continuous Control Using Generalized Advantage Estimation, p.5
