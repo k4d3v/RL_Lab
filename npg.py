@@ -64,7 +64,7 @@ class NPG:
                 break
 
             # Update policy parameters
-            self.policy.update_params(step.ravel())
+            self.policy.update_params(step)
             # print("New Params: ", self.policy.get_params())
 
             # Fit value function
@@ -85,7 +85,7 @@ class NPG:
         start = timer()
 
         alpha = np.sqrt(self.delta / (np.matmul(np.matmul(vanilla_gradient, fisher_inv), vanilla_gradient.T)))
-        nat_grad = np.matmul(fisher_inv, vanilla_gradient.T)
+        nat_grad = np.matmul(fisher_inv, vanilla_gradient)
 
         end = timer()
         print("Done grad asc step, ", end - start)
@@ -131,11 +131,11 @@ class NPG:
         num_trajs = len(log_prob_grads)  # Number of trajectories
         num_grad = len(log_prob_grads[0][0])  # Dimension of Gradient
 
-        pol_grad = np.zeros((1, num_grad))
+        pol_grad = np.zeros((num_grad, ))
         for i in range(num_trajs):
             num_timesteps = len(log_prob_grads[i])
 
-            traj_pol_grad = np.zeros((1, num_grad))
+            traj_pol_grad = np.zeros((num_grad, ))
             for j in range(num_timesteps):
                 traj_pol_grad += log_prob_grads[i][j] * adv[i][j]
 
