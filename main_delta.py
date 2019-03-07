@@ -24,13 +24,13 @@ def settings(env_name):
         traj_samples = 20
     elif env_name == 'CartpoleSwingShort-v0' or env_name == 'CartpoleSwingLong-v0':
         #num_iters = [0, 10, 20, 30, 40, 50]
-        num_iters = [0, 50, 100, 150, 200, 250]
-        delta = np.linspace(0.001, 0.01, 5)
+        num_iters = range(0, 51, 5)
+        delta = np.linspace(0.001, 0.01, 3)
         traj_samples = 20
     elif env_name == 'BallBalancerSim-v0':
-        num_iters = [0, 100, 200, 300, 400, 500]
-        delta = np.linspace(0.001, 0.01, 5)
-        traj_samples = 500
+        num_iters = range(0, 301, 30)
+        delta = np.linspace(0.001, 0.01, 3)
+        traj_samples = 100
     return num_iters, delta, traj_samples
 
 
@@ -38,9 +38,9 @@ def settings(env_name):
 Script for testing the NPG implementation
 """
 np.random.seed(42)
-#env_names = ['CartpoleStabShort-v0', 'CartpoleStabLong-v0',
-#             'CartpoleSwingShort-v0', 'CartpoleSwingLong-v0', 'BallBalancerSim-v0']
-env_names = ['CartpoleStabShort-v0']
+env_names = ['CartpoleStabShort-v0', 'CartpoleStabLong-v0',
+             'CartpoleSwingShort-v0', 'CartpoleSwingLong-v0', 'BallBalancerSim-v0']
+#env_names = ['CartpoleStabShort-v0']
 
 for env_name in env_names:
     num_iters, delta, traj_samples = settings(env_name)

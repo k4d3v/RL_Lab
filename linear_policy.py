@@ -13,9 +13,9 @@ class SimpleLinearPolicy:
         torch.manual_seed(1)
         self.s_dim = env.observation_space.shape[0]
         # Init W and bias to 0 and standard deviation such that 3*sigma=max_action
-        self.W = [Variable(torch.rand(0), requires_grad=True) for d in range(self.s_dim)]
-        self.b = Variable(torch.rand(0), requires_grad=True)
-        self.std = Variable(torch.rand(0), requires_grad=True)
+        self.W = [Variable(torch.rand(1), requires_grad=True) for d in range(self.s_dim)]
+        self.b = Variable(torch.rand(1), requires_grad=True)
+        self.std = Variable(torch.rand(1), requires_grad=True)
 
     def get_dist(self, state):
         """
