@@ -1,1 +1,4 @@
-
+gym==0.10.9
+numpy==1.16.2
+quanser_robots==0.1.1
+matplotlib==3.0.2
