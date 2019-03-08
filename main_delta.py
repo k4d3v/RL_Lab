@@ -19,12 +19,11 @@ def settings(env_name):
     """
     num_iters, delta, traj_samples = [], [], 100
     if env_name == 'CartpoleStabShort-v0' or env_name == 'CartpoleStabLong-v0':
-        num_iters = range(0, 101, 10)
+        num_iters = range(0, 201, 20)
         delta = np.linspace(5e-4, 2e-3, 3)
         traj_samples = 20
     elif env_name == 'CartpoleSwingShort-v0' or env_name == 'CartpoleSwingLong-v0':
-        #num_iters = [0, 10, 20, 30, 40, 50]
-        num_iters = range(0, 51, 5)
+        num_iters = range(0, 101, 10)
         delta = np.linspace(0.001, 0.01, 3)
         traj_samples = 20
     elif env_name == 'BallBalancerSim-v0':
