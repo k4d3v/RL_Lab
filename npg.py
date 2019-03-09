@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 from timeit import default_timer as timer
+#from sklearn.metrics import euclidean_distances
 
 
 class NPG:
@@ -34,6 +35,14 @@ class NPG:
         # Fit value function
         self.val.fit(trajs, first)
 
+        """
+        # Uncomment when using rbf policy
+        # Fit v of policy based on average dists between observations
+        if first:
+            obs = [p[0] for t in trajs for p in t]
+            self.policy.v = np.mean(euclidean_distances(obs))
+        """
+        
         for i in range(k):
             start = timer()
             print("Iteration: ", i)
