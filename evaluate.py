@@ -22,10 +22,12 @@ class Evaluator:
     def evaluate(self, n, render=False, limit=False):
         """
         Collect rewards based on actions sampled from the learnt policy
+        :param limit: True, if the action range has to be limited (e.g. on the rel system)
+        :param render: True, if env should be rendered
         :param n: Number of rollouts
         :return: Average reward
         """
-        avg_reward = 0.0
+        avg_reward = []
         min_reward = 100000
         max_reward = -100000
 
@@ -65,8 +67,8 @@ class Evaluator:
                 max_reward = episode_reward
             if episode_reward < min_reward:
                 min_reward = episode_reward
-            avg_reward += episode_reward
+            avg_reward.append(episode_reward)
 
         self.env.step(np.array([0.]))
         #amin, amax = np.min(acts), np.max(acts)
-        return avg_reward / n
+        return np.mean(avg_reward), np.std(avg_reward)

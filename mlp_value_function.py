@@ -4,22 +4,20 @@ from timeit import default_timer as timer
 from matplotlib import pyplot as plt
 
 
-class ThreeLayerNet(torch.nn.Module):
+class Net(torch.nn.Module):
     """
-    Represents a neural network with three layers
+    Represents a neural network with one hidden layer
     """
-    def __init__(self, D_in, H1, H2, D_out):
+    def __init__(self, D_in, H1, D_out):
         """
-        Initializes a NN with three layers
+        Initializes a NN with one hidden layer
         :param D_in: Input layer
         :param H1: Hidden layer 1
-        :param H2: Hidden layer 2
         :param D_out: Output layer
         """
-        super(ThreeLayerNet, self).__init__()
+        super(Net, self).__init__()
         self.linear1 = torch.nn.Linear(D_in, H1)
-        self.linear2 = torch.nn.Linear(H1, H2)
-        self.linear3 = torch.nn.Linear(H2, D_out)
+        self.linear2 = torch.nn.Linear(H1, D_out)
 
     def forward(self, x):
         """
@@ -28,8 +26,7 @@ class ThreeLayerNet(torch.nn.Module):
         :return: Output
         """
         h_relu = torch.nn.functional.relu(self.linear1(x))
-        h_relu2 = torch.nn.functional.relu(self.linear2(h_relu))
-        y_pred = self.linear3(h_relu2)
+        y_pred = self.linear2(h_relu)
 
         return y_pred
 
@@ -44,7 +41,7 @@ class ValueFunction:
         :param discount: Discount factor
         """
         self.discount = discount
-        self.model = ThreeLayerNet(s_dim, 50, 25, 1)
+        self.model = Net(s_dim, 20, 1)
         self.criterion = torch.nn.MSELoss()
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-3)
 
@@ -56,8 +53,8 @@ class ValueFunction:
         start = timer()
 
         # Fit for more epochs if net was newly initialized, else for less, as new vals are similar to init.
-        epochs = 200 if init else 75
-        batch_size = 32
+        epochs = 400 if init else 100
+        batch_size = 64
 
         # Compute empirical reward based on trajs
         states, returns = self.empirical_reward(trajs)
@@ -69,7 +66,7 @@ class ValueFunction:
         #x_vali = torch.Tensor(states_vali)
         #y_vali = torch.Tensor(returns_vali).view(len(returns_vali), 1)
 
-        loss_list, val_list = [], []
+        #loss_list, val_list = [], []
         rng = range(epochs)
         for _ in rng:
             perm = torch.randperm(x.size()[0])

@@ -6,16 +6,14 @@ import pickle
 from matplotlib import pyplot as plt
 
 import npg
-import linear_policy
 import mlp_value_function
 import evaluate
 
 """
-Script for training a model on the real system after having pretrained in simulation
+Script for training a model on the real system after having pretrained in simulation. Plot and policy are saved.
 """
 np.random.seed(42)
 env_name = 'CartpoleStabRR-v0'
-#env_name = 'CartpoleStabShort-v0'
 
 num_iters, delta, traj_samples = range(10), 0.0055, 5
 iter_simu = 200
