@@ -79,14 +79,11 @@ class GPPolicy:
         :param random: True, if actions are to be sampled randomly from the action space
         :return: Sampled traj
         """
-        # old_observation = [np.inf]*self.s_dim
-        # old_action = 0
-
         # Reset the environment
         observation = self.env.reset()
 
         if random and self.x is None:
-            # Generate random params and fit GP
+            # Generate random params and fit GP upon first rollout
             self.x, self.y = self.prepare_data(observation)
             self.fit_gp()
             self.plot_policy()
@@ -117,17 +114,6 @@ class GPPolicy:
             point.append(reward)  # Save reward to tuple
 
             episode_reward += reward
-
-            """
-            # Append point if it is far enough from the previous one
-            if not np.all(np.abs(observation - old_observation) < 1e-2):
-                traj.append(point)  # Add Tuple to traj
-                old_observation = observation
-                old_action = 0
-            else:
-                old_action += action
-                print("Sampled redundant state.")
-            """
             traj.append(point)
 
         print("Episode reward: ", episode_reward)
@@ -142,11 +128,10 @@ class GPPolicy:
         params = [list(param.flatten()) for param in pl]
         return np.array(params[0] + params[1])
 
-    def update(self, J, dJ, p):
+    def update(self, J, p):
         """
         Optimizes the policy param.s w.r.t. the expected return
         :param J: Function for computing the expected return
-        :param dJ: Function for computing the gradient of the expected return
         :param p: Denotes which params are going to be optimized
         """
         init_all = self.param_array()
@@ -179,17 +164,18 @@ class GPPolicy:
             bnds = ([(lowd, highd) for lowd, highd in zip(s_low, s_high)] * self.n_basis
                     + [(a_min, a_max)] * self.n_basis)
 
-        # new_Theta = minimize(J, init, method='L-BFGS-B', jac=dJ, bounds=bnds, options={'disp': True, 'maxfun': 1}).x
         new_Theta = minimize(J, init, method='L-BFGS-B', bounds=bnds, options={'disp': True, 'maxfun': 1}).x
         print("Optimization of policy params done.")
         new_Theta_all = init_all
 
+        print("Old params: ", init)
         if p == 0:
             new_Theta_all[:self.s_dim * self.n_basis] = new_Theta
         elif p == 1:
             new_Theta_all[self.s_dim * self.n_basis:] = new_Theta
         elif p == -1:
             new_Theta_all[:] = new_Theta
+        print("New params: ", new_Theta)
 
         self.assign_Theta(new_Theta_all)
 
@@ -201,7 +187,7 @@ class GPPolicy:
         """
         new_Theta = self.param_array()
         old_Theta = old_policy.param_array()
-        return np.all(np.abs(new_Theta - old_Theta) < 0.1)
+        return np.all(np.abs(new_Theta - old_Theta) < 1e-3)
 
     def plot_policy(self):
         """

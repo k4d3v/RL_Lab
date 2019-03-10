@@ -44,7 +44,7 @@ class PILCO:
             # Apply random control signals and record data
             data.append(policy.rollout(True))
             # Delete redundant states across trajectories
-            #data = self.regularize(data)
+            data = self.regularize(data)
 
         old_policy = policy
 
@@ -56,7 +56,7 @@ class PILCO:
             dyn_model = DynModel(s_dim, data)
             print("Average GP error: ", dyn_model.training_error_gp())
             # Plot learnt model
-            #dyn_model.plot()
+            dyn_model.plot()
 
             i = 0
             while True:
@@ -86,7 +86,8 @@ class PILCO:
 
             # Apply new optimal policy to system (One episode) and record
             data.append(policy.rollout())
-            #data = self.regularize(data)
+            # Delete redundant states across trajectories
+            data = self.regularize(data)
 
         print("Training done, ", timer() - start)
         return policy
@@ -175,9 +176,7 @@ class PILCO:
             # First state is known, predictive mean of action can be computed and variance is zero (p.44 Deisenroth)
             x0 = dyn_model.x[0][:-1]
             # Get action from policy based on the state
-            lx0 = list(x0)
-            lx0.append(apolicy.get_action(x0))
-            x0 = np.array(lx0)
+            x0 = np.concatenate((x0, apolicy.get_action(x0)))
 
             x_t_1 = x0
             mu_t_1 = x0[:-1]
@@ -208,9 +207,7 @@ class PILCO:
 
                 x_t = np.random.multivariate_normal(mu_t, sigma_t)  # Sample state x from predicted distribution
                 # Get action from policy based on the state
-                lx = list(x_t)
-                lx.append(apolicy.get_action(x_t))
-                x_t = np.array(lx)
+                x_t = np.concatenate((x_t, apolicy.get_action(x_t)))
 
                 # Update x, mu and sigma
                 traj.append(x_t)
@@ -382,9 +379,9 @@ class PILCO:
 
                 fst = 2 * (np.log(self.alpha[a]) + np.log(self.alpha[b]))
 
-                snd_1 = np.dot(np.dot(ksi_i.T, Lia), ksi_i)
-                snd_2 = np.dot(np.dot(ksi_j.T, Lib), ksi_j)
-                snd_3 = np.dot(np.dot(np.dot(z_ij.T, R_inv), Sigma_t), z_ij)
+                snd_1 = np.dot(np.dot(ksi_i.T, Lia), ksi_i).item()
+                snd_2 = np.dot(np.dot(ksi_j.T, Lib), ksi_j).item()
+                snd_3 = np.dot(np.dot(np.dot(z_ij.T, R_inv), Sigma_t), z_ij).item()
 
                 snd = 0.5 * (snd_1 + snd_2 - snd_3)
                 entry = np.exp(fst - snd) / detsqrt
@@ -463,4 +460,30 @@ class PILCO:
         """
         return np.block([[mat, np.zeros((E, 1))], [np.zeros((1, E)), np.ones((1, 1))]])
 
+    def regularize(self, data):
+        """
+        Removes redundant entries from data based on distances
+        :param data: Samples from rollouts of policy
+        :return: Sparse data
+        """
+        # Remove redundant entries across the trajectories
+        for atraj in data[:-1]:
+            states = [point[0] for point in atraj]
+            for s in states:
+                # Start at second trajectory point
+                i = 1
+                states_new = [point[0] for point in data[-1]]
+                while i < len(states_new):
+                    # Delete redundant state from last traj
+                    if np.all(np.abs(s - states_new[i]) < 5e-2):
+                        # Store action
+                        data[-1][i - 1][1] += data[-1][i][1]
 
+                        print("Deleted redundant state.")
+                        del data[-1][i]
+                        del states_new[i]
+                    # Increment i if no redundancy was found
+                    else:
+                        i += 1
+        print("New trajectory length:", len(data[-1]))
+        return data

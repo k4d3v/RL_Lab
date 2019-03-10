@@ -4,7 +4,9 @@ import quanser_robots
 
 from linear_policy import LinearPolicy as Policy
 
-
+"""
+For testing learnt policies in simulation
+"""
 env_name = 'CartpoleStabShort-v0'
 pol = Policy(gym.make(env_name))
 par = pickle.load(open(env_name+".p", "rb"))
