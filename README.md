@@ -1,6 +1,6 @@
 # RL_Lab
-This repository contains Python code for `NPG`(natural policy gradient) and `PILCO`(Probabilistic Inference for Learning Control).
+This repository contains the implementations for two reinforcement learning(RL) algorithms, i.e. `NPG`(natural policy gradient) and `PILCO`(Probabilistic Inference for Learning Control) with a focus on topics covered by the TU Darmstadt IAS Reinforcement Learning Classes, more details see https://www.ias.informatik.tu-darmstadt.de/Teaching/ReinforcementLearning . The implementations are based on recent papers and written in Python. The algorithms are tested on `Quanser-robots` platform, which has been used as simulation and control interface. You can learn and evaluate the algorithms in simulation, or you can learn the algorithms in simulation and evaluate on the physical system, or you can also learn and evaluate the algorithms on the physical system. 
 ## Getting Started
 All the code in this repository has been tested in `ubuntu 16.04` and `18.04` with `Python 3.6`. Before running the code, make sure you have already installed `PyTorch` and `OpenAI Gym` on your computer.<br>
 <br>
-`Quanser platforms` is used as simulator and real robot control interface, you can find the detailed installation instructions at https://git.ias.informatik.tu-darmstadt.de/quanser/clients.
+`Quanser platforms` has been used as simulator and real robot control interface, you can find the detailed installation instructions at https://git.ias.informatik.tu-darmstadt.de/quanser/clients.
