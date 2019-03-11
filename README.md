@@ -38,7 +38,7 @@ You can train either with delta（learning rate）or with number of trajectories
   # Train with num of trajs as hyperparam
   train(env_names)
   ```
-#### Environment: CartpoleStabShort-v0
+#### Environment 1: CartpoleStabShort-v0
 * Hyperparameters:
   ```python
   # train_sim.py
@@ -53,7 +53,7 @@ You can train either with delta（learning rate）or with number of trajectories
 * Plot:        
 <img src="https://github.com/k4d3v/RL_Lab/raw/NPG/images/figures/CartpoleStabShort-v0.png" width="400" height="300" div align=center> <br>
 
-#### Environment: CartpoleStabLong-v0
+#### Environment 2: CartpoleStabLong-v0
 * Hyperparameter:
   ```python
   # train_sim.py
@@ -70,7 +70,7 @@ You can train either with delta（learning rate）or with number of trajectories
 <img src="https://github.com/k4d3v/RL_Lab/raw/NPG/images/figures/CartpoleStabLong-v0.png" width="400" height="300" div align=center> <br>
 
 
-#### Environment: CartpoleSwingShort-v0
+#### Environment 3: CartpoleSwingShort-v0
 * Hyperparameter:
   ```python
   # train_sim.py
@@ -85,7 +85,7 @@ You can train either with delta（learning rate）or with number of trajectories
 * Plot:        
 <img src="https://github.com/k4d3v/RL_Lab/raw/NPG/images/figures/CartpoleSwingShort-v0.png" width="400" height="300" div align=center> <br>
 
-#### Environment: CartpoleSwingLong-v0
+#### Environment 4: CartpoleSwingLong-v0
 * Hyperparameter:
   ```python
   # train_sim.py
@@ -101,7 +101,7 @@ You can train either with delta（learning rate）or with number of trajectories
 * Plot:        
 <img src="https://github.com/k4d3v/RL_Lab/raw/NPG/images/figures/CartpoleSwingLong-v0.png" width="400" height="300" div align=center> <br>
 
-#### Environment: BallBalancerSim-v0
+#### Environment 5: BallBalancerSim-v0
 * Hyperparameter:
   ```python
   # train_sim.py
