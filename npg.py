@@ -242,7 +242,7 @@ class NPG:
             traj = []
 
             n_samps = 0
-            while not done and n_samps < 1000:
+            while not done and n_samps < 2000:
                 # self.env.render()
                 point = []
 
