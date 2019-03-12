@@ -241,8 +241,7 @@ class NPG:
             done = False
             traj = []
 
-            n_samps = 0
-            while not done and n_samps < 2000:
+            while not done and len(traj) < 3000:
                 # self.env.render()
                 point = []
 
@@ -268,13 +267,11 @@ class NPG:
                     if distl < 0.1 or distr < 0.1:
                         break
 
-                n_samps += 1
-
             # Delete out of bounds (last) point on traj for ballbal
             if self.env.spec.id == "BallBalancerSim-v0":
                 del traj[-1]
             avg_reward += episode_reward
-            # print(len(traj))
+            print(len(traj))
             # trajs.append(self.clean(traj))
             trajs.append(traj)
 

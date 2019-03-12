@@ -122,7 +122,7 @@ def train(env_names, delta=False):
         for ar in range(len(all_avg)):
             avg_arr, std_arr = np.array(all_avg[ar]), np.array(all_std[ar])
             if delta:
-                plt.plot(num_iters, avg_arr, label=msg2+str(alist[ar]))
+                plt.plot(num_iters, avg_arr, label=msg2+str(round(alist[ar], 4)))
             else:
                 plt.plot(num_iters, avg_arr, label=str(alist[ar])+msg2)
             plt.fill_between(num_iters, avg_arr-std_arr, avg_arr+std_arr, alpha=0.2)
