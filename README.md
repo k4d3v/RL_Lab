@@ -20,3 +20,20 @@ According to the paper, PILCO consists of three layers, the bottom layer learns 
 * `test_models.py` For testing learnt policies in simulation. <br>
 
 ## Examples
+### 1. Learning & Evaluation in Simulation
+You can train either with a linear or an RBF policy. You can initialize a training agent in `main.py`.
+* Choose the policy that you want to train by commenting one import and uncommenting the other. Note: Moment matching works only for the linear policy.
+  ```python
+  from pilco_lin import PILCO
+    #from pilco import PILCO
+
+    np.random.seed(12)
+
+    env_names = ['CartpoleStabShort-v0', 'CartpoleStabLong-v0',
+                 'CartpoleSwingShort-v0', 'CartpoleSwingLong-v0', 'BallBalancerSim-v0']
+
+    for env_name in env_names:
+        # Train agent
+        agent = PILCO(env_name)
+        optimal_policy = agent.train()
+  ```
